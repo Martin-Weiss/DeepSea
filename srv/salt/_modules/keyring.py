@@ -50,3 +50,6 @@ def file(component, name=None):
 
     elif component == "deepsea_rbd_bench":
         return "/srv/salt/ceph/rbd/benchmarks/files/cache/deepsea_rbd_bench.keyring"
+
+    elif component == "ganesha":
+        return "/srv/salt/ceph/ganesha/cache/" + name + ".keyring"
