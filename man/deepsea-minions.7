@@ -1,0 +1,63 @@
+.TH deepsea 7
+.SH NAME
+deepsea minions
+.SH DESCRIPTION
+For compatibility with other Salt solutions,
+.B DeepSea
+uses
+.I deepsea_minions,
+which constrains the targeting of Salt minions.
+By default DeepSea targets by grain using 'G@deepsea'. For more information on salt targeting, check the
+.B SEE ALSO
+section.
+.SH METHODS
+Either reconfigure
+.I deepsea_minions
+to use any valid Salt target or apply grains to the desired minions.  For example,
+.PP
+.RS 4
+deepsea_minions: '*'
+.RE
+.PP
+will target all Salt minions.  Likewise,
+.PP
+.RS 4
+deepsea_minions: 'ses*'
+.RE
+.PP
+will only target minions that begin with
+.B ses.
+.PP
+Alternatively, apply a grain to each minion and use the default deepsea_minions of
+.B G@deepsea:*.
+For example,
+.PP
+.RS 4
+salt -L node1.domain,node2.domain grains.append deepsea default
+.RS
+.RE
+salt -S 10.0.0.0/24 grains.append deepsea default
+.RE
+.PP
+will target the minions node1.domain and node2.domain in addition to all minions in the subnet 10.0.0.0/24.  Grain selection works well in environments where Salt is installed on minions that follow no simple pattern.
+.PP
+To remove a grain completely from a minion, run
+.PP
+.RS 4
+salt 'xyz.domain' grains.delval deepsea destructive=True
+.RE
+.PP
+For more information on Salt grains see https://docs.saltstack.com/en/latest/topics/grains/
+
+.SH FILES
+The file for
+.I deepsea_minions
+is /srv/pillar/ceph/deepsea_minions.sls.
+.SH SEE ALSO
+.UR https://docs.saltstack.com/en/latest/topics/targeting/
+.UE
+.SH AUTHORS
+Eric Jackson <ejackson@suse.com>
+.RS
+.RE
+Jan Fajerski <jfajerski@suse.com>

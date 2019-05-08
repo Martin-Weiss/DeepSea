@@ -1,30 +1,41 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-import rados
+"""
+Heath related checks for Ceph
+"""
+
+from __future__ import absolute_import
 import json
 import time
 import logging
-import pprint
+# pylint: disable=import-error,3rd-party-module-not-gated
+import salt.ext.six as six
+try:
+    import rados
+except ImportError:
+    logging.info("Could not import rados")
 
+# pylint: disable=incompatible-py3-code
 log = logging.getLogger(__name__)
 
 
+# pylint: disable=too-few-public-methods
 class HealthCheck(object):
     """
-    Check the Ceph health status.  Wait to return until the number of
-    successive checks matches the desired state.
+    This is the base class for health checks and offers the generics of running
+    a command and checking its output until a timeout is reached.
     """
 
     def __init__(self, **kwargs):
         """
         Default settings can be overridden
         """
-        if 'status' not in kwargs:
+        if 'nohealthcheck' not in kwargs and 'status' not in kwargs:
             msg = "status argument required\nExample: status=HEALTH_OK"
             raise ValueError(msg)
 
         self.settings = {
-            'conf' : "/etc/ceph/ceph.conf",
+            'conf': "/etc/ceph/ceph.conf",
             'timeout': 300,
             'check': 2,
             'delay': 6,
@@ -38,23 +49,22 @@ class HealthCheck(object):
         """
         Connect to Ceph cluster
         """
-        self.cluster=rados.Rados(conffile=self.settings['conf'])
+        self.cluster = rados.Rados(conffile=self.settings['conf'])
         self.cluster.connect()
 
-    def wait(self):
+    def _wait(self, cmd, success):
         """
         Poll until the status "matches" the specificed number of checks.
         """
-        cmd = json.dumps({"prefix":"health", "format":"json" })
-        i=0
+        i = 0
         check = 0
 
+        log.debug('wait on condition of command {}'.format(cmd))
         while i < (self.settings['timeout']/self.settings['delay']):
-            ret,output,err = self.cluster.mon_command(cmd, b'', timeout=6)
-            current_status = json.loads(output)['overall_status']
-            log.debug("status: {}".format(current_status))
+            _ret, output, _err = self.cluster.mon_command(cmd, b'', timeout=6)
+            json_output = json.loads(output)
 
-            if self._check_status(current_status, self.settings):
+            if success(json_output):
                 check += 1
                 if check == self.settings['check']:
                     log.debug("{} checks succeeded".format(self.settings['check']))
@@ -69,37 +79,122 @@ class HealthCheck(object):
         log.debug("Timeout expired")
         raise RuntimeError("Timeout expired")
 
-    def _check_status(self, current, settings):
+    def _check_status(self, current):
         """
         Return the "correct" matching status
         """
-        if settings['negate']:
-            log.debug("status != {}".format(settings['status']))
-            return (current != settings['status'])
+        # pylint: disable=no-else-return
+        if self.settings['negate']:
+            log.debug("status != {}".format(self.settings['status']))
+            return current != self.settings['status']
         else:
-            log.debug("status == {}".format(settings['status']))
-            return (current == settings['status'])
+            log.debug("status == {}".format(self.settings['status']))
+            return current == self.settings['status']
+
+
+# pylint: disable=too-few-public-methods
+class FsStatusCheck(HealthCheck):
+    """
+    Check the fsmap status of the ceph status output. Wait till all active MDS's
+    daemons have reached up:active status
+    """
+
+    def wait_for_healthy_mds(self):
+        """
+        Poll until all active MDS' are up:active
+        """
+        cmd = json.dumps({"prefix": "status", "format": "json"})
+
+        def success(status):
+            """
+            Success function to be passed to _check_status
+            """
+            if 'fsmap' in status:
+                fsmap = status['fsmap']
+            else:
+                raise RuntimeError('No fsmap found in status output')
+
+            for rank in fsmap['by_rank']:
+                if not self._check_status(rank['status']):
+                    return False
+            if 'mds_count' in self.settings:
+                return int(self.settings['mds_count']) == len(fsmap['by_rank'])
+            return True
+
+        self._wait(cmd, success)
+
+
+class HealthStatusCheck(HealthCheck):
+    """
+    Check the Ceph health status.  Wait to return until the number of
+    successive checks matches the desired state.
+    """
+
+    def wait(self):
+        """
+        Poll until the status "matches" the specificed number of checks.
+        """
+        cmd = json.dumps({"prefix": "health", "format": "json"})
+
+        def success(health):
+            """
+            Success function to be passed to _check_status
+            """
+            if 'overall_status' in health:
+                current_status = health['overall_status']
+            if 'status' in health:
+                current_status = health['status']
+            if current_status:
+                log.debug("status: {}".format(current_status))
+            else:
+                raise RuntimeError("Neither status nor overall_status defined in health check")
+
+            return self._check_status(current_status)
+
+        self._wait(cmd, success)
+
+    def just(self):
+        """
+        Sleep a set amount
+        """
+        time.sleep(self.settings['delay'])
+
+
+def just(**kwargs):
+    """
+    Wait for the delay
+    """
+    healthcheck = HealthStatusCheck(**kwargs)
+    healthcheck.just()
+
 
 def until(**kwargs):
     """
     Wait around until the status matches.
     """
-    hc = HealthCheck(**kwargs)
-    hc.wait()
+    healthcheck = HealthStatusCheck(**kwargs)
+    healthcheck.wait()
+
+
+def until_mds(**kwargs):
+    """
+    Wait around for fsmap changes.
+    """
+    fscheck = FsStatusCheck(**kwargs)
+    fscheck.wait_for_healthy_mds()
 
 
 def out(**kwargs):
     """
     Negate the check.  That is, wait out the status such as HEALTH_ERR.
     """
-    kwargs.update({ 'negate': True })
-    hc = HealthCheck(**kwargs)
-    hc.wait()
+    kwargs.update({'negate': True})
+    healthcheck = HealthStatusCheck(**kwargs)
+    healthcheck.wait()
 
 
 def _skip_dunder(settings):
     """
     Skip double underscore keys
     """
-    return {k:v for k,v in settings.iteritems() if not k.startswith('__')}
-
+    return {k: v for k, v in six.iteritems(settings) if not k.startswith('__')}

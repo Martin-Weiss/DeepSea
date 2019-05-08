@@ -1,22 +1,7 @@
-#!/usr/bin/python
-
-import salt.client
-import salt.utils.error
-import logging
-import ipaddress
-import pprint
-import json
-import yaml
-import os
-import re
-import sys
-from subprocess import call, Popen, PIPE
-from os.path import dirname
-
-from collections import OrderedDict
-
-log = logging.getLogger(__name__)
-
+# -*- coding: utf-8 -*-
+# pylint: disable=modernize-parse-error,too-few-public-methods
+# pylint: disable=visually-indented-line-with-same-indent-as-next-logical-line
+# pylint: disable=fixme,no-self-use
 """
 For Ceph, the generation of ceph.conf requires additional information.
 Although this information can be determined from Salt itself, the
@@ -28,7 +13,36 @@ prerequisite is that osd assignment must be decided before segregating types
 of hardware.
 """
 
-class bcolors:
+from __future__ import absolute_import
+from __future__ import print_function
+import logging
+import ipaddress
+import json
+import os
+from os.path import dirname
+import re
+import sys
+import glob
+from subprocess import Popen, PIPE
+from collections import OrderedDict
+from distutils.version import LooseVersion  # pylint: disable=no-name-in-module,import-error,blacklisted-module,3rd-party-module-not-gated
+import yaml
+# pylint: disable=import-error,3rd-party-module-not-gated,redefined-builtin
+import salt.client
+import salt.utils
+import salt.utils.minions
+import salt.utils.error
+from configobj import ConfigObj
+# pylint: disable=relative-import
+
+
+log = logging.getLogger(__name__)
+
+
+class Bcolors(object):
+    """
+    Sequences for colored text
+    """
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
     OKGREEN = '\033[92m'
@@ -38,34 +52,106 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
-class PrettyPrinter:
 
-    def add(self, name, passed, errors, warnings):
+class PrettyPrinter(object):
+    """
+    Console printing
+    """
+
+    # pylint: disable=unused-argument
+    def add(self, name, skipped, passed, errors, warnings):
+        """
+        Print colored results.  Green is ok, yellow is warning,
+        red is error and blue is skipped.
+        """
         # Need to make colors optional, but looks better currently
+        for attr in skipped.keys():
+            format_str = "{:25}: {}{}{}{}".format(attr,
+                                                  Bcolors.BOLD,
+                                                  Bcolors.OKBLUE,
+                                                  skipped[attr],
+                                                  Bcolors.ENDC)
+            log.info("VALIDATE SKIPPED  %s", format_str)
+            print(format_str)
         for attr in passed.keys():
-            print "{:25}: {}{}{}{}".format(attr, bcolors.BOLD, bcolors.OKGREEN, passed[attr], bcolors.ENDC)
+            format_str = "{:25}: {}{}{}{}".format(attr,
+                                                  Bcolors.BOLD,
+                                                  Bcolors.OKGREEN,
+                                                  passed[attr],
+                                                  Bcolors.ENDC)
+            log.info("VALIDATE PASSED  %s", format_str)
+            print(format_str)
         for attr in errors.keys():
-            print "{:25}: {}{}{}{}".format(attr, bcolors.BOLD, bcolors.FAIL, errors[attr], bcolors.ENDC)
+            format_str = "{:25}: {}{}{}{}".format(attr,
+                                                  Bcolors.BOLD,
+                                                  Bcolors.FAIL,
+                                                  errors[attr],
+                                                  Bcolors.ENDC)
+            log.info("VALIDATE ERROR   %s", format_str)
+            print(format_str)
         for attr in warnings.keys():
-            print "{:25}: {}{}{}{}".format(attr, bcolors.BOLD, bcolors.WARNING, warnings[attr], bcolors.ENDC)
+            format_str = "{:25}: {}{}{}{}".format(attr,
+                                                  Bcolors.BOLD,
+                                                  Bcolors.WARNING,
+                                                  warnings[attr],
+                                                  Bcolors.ENDC)
+            log.info("VALIDATE WARNING %s", format_str)
+            print(format_str)
 
     def print_result(self):
+        """
+        Printing happens during add
+        """
         pass
 
-class JsonPrinter:
+
+class JsonPrinter(object):
+    """
+    API printing
+    """
 
     def __init__(self):
+        """
+        Initialize result
+        """
         self.result = {}
 
     def add(self, name, passed, errors, warnings):
+        """
+        Collect results
+        """
         self.result[name] = {'passed': passed, 'errors': errors, 'warnings': warnings}
 
     def print_result(self):
+        """
+        Dump results as json
+        """
         json.dump(self.result, sys.stdout)
 
-def get_printer(__pub_output=None, **kwargs):
-    return JsonPrinter() if __pub_output in ['json', 'quiet'] else PrettyPrinter()
 
+def get_printer(__pub_output=None, **kwargs):
+    """
+    Return the passed printer, JsonPrinter or PrettyPrinter function
+    """
+    if 'printer' in kwargs:
+        printer = kwargs['printer']
+    elif __pub_output in ['json', 'quiet']:
+        printer = JsonPrinter()
+    else:
+        printer = PrettyPrinter()
+    return printer
+
+
+class Preparation(object):
+    """
+    Provide commonly used preparations for ClusterAssignment and
+    Validate
+    """
+
+    def __init__(self):
+        self.search = __utils__['deepsea_minions.show']()
+        self.matches = __utils__['deepsea_minions.matches']()
+        self.local = salt.client.LocalClient()
 
 
 class SaltOptions(object):
@@ -82,21 +168,23 @@ class SaltOptions(object):
             if 'stack' in ext:
                 self.stack_dir = dirname(ext['stack'])
 
-class ClusterAssignment(object):
+
+class ClusterAssignment(Preparation):
     """
     Discover the cluster assignment and ignore unassigned
     """
 
-    def __init__(self, local):
+    def __init__(self):
         """
         Query the cluster assignment and remove unassigned
         """
-        self.minions = local.cmd('*' , 'pillar.get', [ 'cluster' ])
+        # Python2 syntax is only used because the test is running in python2
+        super(ClusterAssignment, self).__init__()
+        self.minions = self.local.cmd(self.search, 'pillar.get', ['cluster'])
 
         self.names = dict(self._clusters())
         if 'unassigned' in self.names:
             self.names.pop('unassigned')
-
 
     def _clusters(self):
         """
@@ -129,40 +217,61 @@ class Util(object):
         return [elem.strip() for elem in list_str.split(delim) if elem.strip()]
 
 
-class Validate(object):
+LUMINOUS_VERSION = "11.2"
+
+
+# pylint: disable=too-many-instance-attributes,too-many-public-methods
+class Validate(Preparation):
     """
     Perform checks on pillar and grain data
     """
 
-    def __init__(self, name, data, grains, printer):
+    def __init__(self, name, search_pillar=False, search_grains=False,
+                 printer=None, search=None, skip_init=False):
         """
         Query the cluster assignment and remove unassigned
         """
+        # Python2 syntax is only used because the test is running in python2
+        if not skip_init:
+            super(Validate, self).__init__()
         self.name = name
-        self.data = data
-        self.grains = grains
+        self.data = self.__get_items(search_pillar, 'pillar')
+        self.grains = self.__get_items(search_grains, 'grains')
         self.printer = printer
         self.in_dev_env = self.__dev_env()
+        self.skipped = OrderedDict()
         self.passed = OrderedDict()
         self.errors = OrderedDict()
         self.warnings = OrderedDict()
-        self._minion_check()
+        self.ipversion = set()
+        if search:
+            self.search = search
+
+        # Ceph version
+        self.package = 'ceph-common'
+        self.uninstalled = []
+
+    def __get_items(self, enabled, target):
+        """
+        Look up [pillar|grains].items
+        """
+        if enabled:
+            items = self.local.cmd(self.search, target + '.items',
+                                   [], tgt_type="compound")
+            return items
+        return None
 
     def __dev_env(self):
+        """
+        Check if DEV_ENV is set in the environment or pillar
+        """
         if 'DEV_ENV' in os.environ:
             return os.environ['DEV_ENV'].lower() != 'false'
-        elif len(self.data.keys()) > 1:
-            any_minion = self.data.keys()[0]
+        elif self.data:
+            any_minion = list(self.data.keys())[0]
             if 'DEV_ENV' in self.data[any_minion]:
                 return self.data[any_minion]['DEV_ENV']
         return False
-
-    def _minion_check(self):
-        """
-        """
-        if not self.data:
-            log.error("No minions responded")
-            os._exit(1)
 
     def _set_pass_status(self, key):
         """
@@ -171,7 +280,16 @@ class Validate(object):
         if key not in self.errors and key not in self.warnings:
             self.passed[key] = "valid"
 
+    def skip(self, key):
+        """
+        Assign skipped steps
+        """
+        self.skipped[key] = "skipping"
+
     def dev_env(self):
+        """
+        Add a validation state to let user know this is set
+        """
         if self.in_dev_env:
             self.passed['DEV_ENV'] = "True"
 
@@ -179,7 +297,7 @@ class Validate(object):
         """
         Validate fsid from first entry
         """
-        fsid = self.data[self.data.keys()[0]].get("fsid", "")
+        fsid = self.data[list(self.data.keys())[0]].get("fsid", "")
         log.debug("fsid: {}".format(fsid))
         if fsid:
             if len(fsid) == 36:
@@ -188,19 +306,19 @@ class Validate(object):
                     self.passed['fsid'] = "valid"
                 else:
                     msg = "{} does not appear to be a UUID".format(fsid)
-                    self.errors['fsid'] = [ msg ]
+                    self.errors['fsid'] = [msg]
 
             else:
                 msg = "{} has {} characters, not 36".format(fsid, len(fsid))
-                self.errors['fsid'] = [ msg ]
+                self.errors['fsid'] = [msg]
         else:
             stack_dir = "/srv/pillar/ceph/stack"
             cluster_yml = "{}/cluster.yml".format(self.name)
 
-            msg = ( "fsid is not defined.  "
-                    "Check {0}/{1} and {0}/default/{1}".
-                    format(stack_dir, cluster_yml))
-            self.errors['fsid'] = [ msg ]
+            msg = ("fsid is not defined.  "
+                   "Check {0}/{1} and {0}/default/{1}".
+                   format(stack_dir, cluster_yml))
+            self.errors['fsid'] = [msg]
 
     def public_network(self):
         """
@@ -214,15 +332,17 @@ class Validate(object):
             log.debug("public_network: {} {}".format(node, net_list))
             for network in net_list:
                 try:
-                    ipaddress.ip_network(u'{}'.format(network))
+                    network = ipaddress.ip_network(u'{}'.format(network))
+                    self.ipversion.add(network.version)
                 except ValueError as err:
-                    msg = "{} on {} is not valid".format(network, node)
+                    msg = "{} on {} is not valid: {}".format(network, node, err)
                     self.errors.setdefault('public_network', []).append(msg)
 
-        self._set_pass_status('public_network');
+        self._set_pass_status('public_network')
 
     def public_interface(self):
         """
+        Check that all minions have an address on the public network
         """
         for node in self.data.keys():
             if ('roles' in self.data[node] and
@@ -230,12 +350,19 @@ class Validate(object):
                 continue
             found = False
             public_network = self.data[node].get("public_network", "")
-	    net_list = Util.parse_list_from_string(public_network)
-            for address in self.grains[node]['ipv4']:
+            net_list = Util.parse_list_from_string(public_network)
+            addresses = self.grains[node]['ipv4']
+            if 'ipv6' in self.grains[node]:
+                addresses += self.grains[node]['ipv6']
+            for address in addresses:
                 try:
                     for network in net_list:
-                        if ipaddress.ip_address(u'{}'.format(address)) in ipaddress.ip_network(u'{}'.format(network)):
+                        addr = ipaddress.ip_address(u'{}'.format(address))
+                        net = ipaddress.ip_network(u'{}'.format(network))
+                        if addr in net:
+                            log.info("Found address {} in subnet {}".format(addr, net))
                             found = True
+                            break
                 except ValueError:
                     # Don't care about reporting a ValueError here if
                     # public_network is malformed, because the
@@ -243,9 +370,9 @@ class Validate(object):
                     pass
             if not found:
                 msg = "minion {} missing address on public network {}".format(node, public_network)
-                self.errors.setdefault('public_interface',[]).append(msg)
+                self.errors.setdefault('public_interface', []).append(msg)
 
-        self._set_pass_status('public_network')
+        self._set_pass_status('public_interface')
 
     def monitors(self):
         """
@@ -257,11 +384,28 @@ class Validate(object):
                 'mon' in self.data[node]['roles']):
                 monitors.append(node)
 
-        if len(monitors) < 3:
+        if (not self.in_dev_env and len(monitors) < 3) or (self.in_dev_env and len(monitors) < 1):
             msg = "Too few monitors {}".format(",".join(monitors))
-            self.errors['monitors'] = [ msg ]
+            self.errors['monitors'] = [msg]
         else:
             self.passed['monitors'] = "valid"
+
+    def mgrs(self):
+        """
+        At least three nodes should have the mgr role
+        """
+        # TODO: Only make this mandatory for Ceph >= Luminous
+        mgrs = []
+        for node in self.data.keys():
+            if ('roles' in self.data[node] and
+                'mgr' in self.data[node]['roles']):
+                mgrs.append(node)
+
+        if (not self.in_dev_env and len(mgrs) < 3) or (self.in_dev_env and len(mgrs) < 1):
+            msg = "Too few mgrs {}".format(",".join(mgrs))
+            self.errors['mgrs'] = [msg]
+        else:
+            self.passed['mgrs'] = "valid"
 
     def storage(self):
         """
@@ -274,21 +418,62 @@ class Validate(object):
             if ('roles' in self.data[node] and
                 'storage' in self.data[node]['roles']):
                 storage.append(node)
-                if not 'storage' in self.data[node]:
-                    missing.append(node)
 
-        if len(storage) < 4 and not self.in_dev_env:
+        if (not self.in_dev_env and len(storage) < 4) or (self.in_dev_env and len(storage) < 1):
             msg = "Too few storage nodes {}".format(",".join(storage))
-            self.errors['storage'] = [ msg ]
+            self.errors['storage'] = [msg]
         else:
             if missing:
                 stack_dir = "/srv/pillar/ceph/stack"
                 minion_yml = "{}/minions/*.yml".format(self.name)
                 err = "Storage nodes {} missing storage attribute.  ".format(",".join(storage))
                 check = "Check {0}/{1} and {0}/default/{1}".format(stack_dir, minion_yml)
-                self.errors['storage'] = [ err + check ]
+                self.errors['storage'] = [err + check]
             else:
                 self.passed['storage'] = "valid"
+
+    def storage_role(self):
+        """
+        Checks if the role-storage is present.
+        With v0.9.14 we moved away from profile-***
+        to the DriveGroup approach.
+        This requires to have the role-storage defined.
+
+        -> storage() and storage_role() should be combined
+        in the future. todo!
+        """
+        policy_file = '/srv/pillar/ceph/proposals/policy.cfg'
+        present = False
+        with open(policy_file, "r") as policy:
+            for line in policy:
+                # strip comments from the end of the line
+                line = re.sub(r'\s+#.*$', '', line)
+                line = line.rstrip()
+                if line.startswith('#') or not line:
+                    log.debug("Ignoring '{}'".format(line))
+                    continue
+                if line.startswith('role-storage'):
+                    present = True
+                    self.passed['storage_role'] = "valid"
+            if not present:
+                self.errors['storage_role'] = [
+                    "You have to define a role-storage in your policy.cfg"
+                ]
+
+    def rgw(self):
+        """
+        Prevent a name collision when the admin wishes to push certificates
+        using default-ssl.sls and custom configurations.
+        """
+        for _, data in self.data.items():
+            if 'roles' in data:
+                if ('rgw_configurations' in data and
+                    "rgw-ssl" in data['rgw_configurations']):
+                    if "rgw_init" in data and data['rgw_init'] == "default-ssl":
+                        msg = "Please rename the custom rgw role from rgw-ssl to another name"
+                        self.errors['rgw'] = msg
+                        return
+        self.passed['rgw'] = "valid"
 
     def ganesha(self):
         """
@@ -301,26 +486,26 @@ class Validate(object):
         role_ganesha = False
 
         for node, data in self.data.items():
-            if ('roles' in data):
-                if('ganesha_configurations' in data):
+            if 'roles' in data:
+                if 'ganesha_configurations' in data:
                     ganesha_roles = list(set(data.get("roles")) &
-                                        set(data.get("ganesha_configurations")))
+                                         set(data.get("ganesha_configurations")))
                     if len(ganesha_roles) > 1:
-                        msg = "minion {} has {} roles. Only one permitted".format(node, ganesha_roles)
-                        self.errors.setdefault('ganesha',[]).append(msg)
+                        msg = "minion {}".format(node)
+                        msg += " {} roles. Only one permitted".format(ganesha_roles)
+                        self.errors.setdefault('ganesha', []).append(msg)
                     if len(ganesha_roles) == 1:
                         role_ganesha = True
 
-
                 if not (role_mds or role_rgw):
-                    if('mds' in data['roles']):
+                    if 'mds' in data['roles']:
                         role_mds = True
-                    if('rgw' in data['roles']):
-                        role_rgw=True
-                    if('rgw_configurations' in data):
-                        if(list(set(data.get("roles")) &
-                                set(data.get("rgw_configurations")))):
-                            role_rgw=True
+                    if 'rgw' in data['roles']:
+                        role_rgw = True
+                    if 'rgw_configurations' in data:
+                        if (list(set(data.get("roles")) &
+                            set(data.get("rgw_configurations")))):
+                            role_rgw = True
 
                 if not role_ganesha:
                     role_ganesha = 'ganesha' in data['roles']
@@ -345,109 +530,77 @@ class Validate(object):
                 log.debug("cluster_network: {} {}".format(node, net_list))
                 for network in net_list:
                     try:
-                        ipaddress.ip_network(u'{}'.format(network))
+                        network = ipaddress.ip_network(u'{}'.format(network))
+                        self.ipversion.add(network.version)
                     except ValueError as err:
-                        msg = "{} on {} is not valid".format(network, node)
+                        msg = "{} on {} is not valid: {}".format(network, node, err)
                         self.errors.setdefault('cluster_network', []).append(msg)
 
         self._set_pass_status('cluster_network')
 
     def cluster_interface(self):
         """
+        Check that storage nodes have an interface on the cluster network
         """
+        # pylint: disable=too-many-nested-blocks
         for node in self.data.keys():
             if ('roles' in self.data[node] and
                 'storage' in self.data[node]['roles']):
                 found = False
                 cluster_network = self.data[node].get("cluster_network", "")
-	    	net_list = Util.parse_list_from_string(cluster_network)
-                for address in self.grains[node]['ipv4']:
+                net_list = Util.parse_list_from_string(cluster_network)
+                for address in self.grains[node]['ipv4'] + self.grains[node]['ipv6']:
                     try:
                         for network in net_list:
-                            if ipaddress.ip_address(u'{}'.format(address)) in ipaddress.ip_network(u'{}'.format(network)):
+                            addr = ipaddress.ip_address(u'{}'.format(address))
+                            net = ipaddress.ip_network(u'{}'.format(network))
+                            if addr in net:
+                                log.info("Found address {} in subnet {}".format(addr, net))
                                 found = True
+                                break
                     except ValueError:
                         # Don't care about reporting a ValueError here if
                         # cluster_network is malformed, because the
                         # previous validation in cluster_network() will do that.
                         pass
                 if not found:
-                    msg = "minion {} missing address on cluster network {}".format(node, cluster_network)
-                    self.errors.setdefault('cluster_interface',[]).append(msg)
+                    msg = "minion {}".format(node)
+                    msg += " missing address on cluster network {}".format(cluster_network)
+                    self.errors.setdefault('cluster_interface', []).append(msg)
 
         self._set_pass_status('cluster_interface')
 
-    def _monitor_check(self, name):
+    def check_ipversion(self):
         """
+        Check that all subnets are the same version
         """
-        same_hosts = {}
-        for node in self.data.keys():
-            if name in self.data[node]:
-                same_hosts[",".join(self.data[node][name])] = ""
-                if self.data[node][name][0].strip() == "":
-                    msg = "host {} is missing values for {}.  ".format(node, name)
-                    msg += "Verify that role-mon/stack/default/ceph/minions/*.yml or similar is in your policy.cfg"
-                    if name in self.errors:
-                        continue
-                    else:
-                        self.errors[name] = [ msg ]
-            else:
-                msg = "host {} is missing {}".format(node, name)
-                self.errors.setdefault(name, []).append(msg)
+        log.debug("ipversion: {}".format(self.ipversion))
+        if len(self.ipversion) != 1:
+            msg = "Networks must be either IPv4 or IPv6"
+            self.errors.setdefault('ip_version', []).append(msg)
 
-        if len(same_hosts.keys()) > 1:
-            msg = "Different entries {}".format(same_hosts.keys())
-            self.errors.setdefault(name, []).append(msg)
-        elif same_hosts:
-            count = len(same_hosts.keys()[0].split(","))
-            if count < 3:
-                msg = "Must have at least three entries"
-                self.errors[name] = [ msg ]
-        else:
-            msg = "Missing {}".format(name)
-            self.errors[name] = [ msg ]
-
-        self._set_pass_status(name)
+        self._set_pass_status('ip_version')
 
     def master_role(self):
         """
         At least one minion has a master role
         """
         found = False
-        matched = False
         for node in self.data.keys():
             if 'roles' in self.data[node] and 'master' in self.data[node]['roles']:
 
                 found = True
-                if 'master_minion' in self.data[node] and node == self.data[node]['master_minion']:
-                    matched = True
-
         if not found:
             msg = "No minion assigned master role"
-            self.errors['master_role'] = [ msg ]
-
-        if not matched:
-            msg = "The master_minion does not match any minion assigned the master role"
-            self.errors['master_role'] = [ msg ]
+            self.errors['master_role'] = [msg]
 
         self._set_pass_status('master_role')
 
-    def mon_host(self):
-        """
-        The mon_host must be the same on all nodes and have at least
-        three entries.
-        """
-        self._monitor_check('mon_host')
-
-    def mon_initial_members(self):
-        """
-        The mon_initial_members must be the same on all nodes and have at least
-        three entries.
-        """
-        self._monitor_check('mon_initial_members')
-
     def _redirection_check(self, name):
         """
+        I believe this method and the next two will be removed.  Neither
+        osd_creation nor pool_creation exist in the pillar.  Honestly, I do
+        not remember going down this path.
         """
         attr = "{}_creation".format(name)
         for node in self.data.keys():
@@ -458,8 +611,7 @@ class Validate(object):
                     self.passed[attr] = "valid"
                 else:
                     msg = "No such state file {}".format(filename)
-                    self.errors[attr] = [ msg ]
-
+                    self.errors[attr] = [msg]
 
     def osd_creation(self):
         """
@@ -475,63 +627,68 @@ class Validate(object):
 
     def _popen(self, cmd):
         """
+        Return stdout, stderr of cmd
         """
         stdout = []
         stderr = []
         proc = Popen(cmd, stdout=PIPE, stderr=PIPE)
         for line in proc.stdout:
+            line = line.decode('ascii')
             stdout.append(line.rstrip('\n'))
         for line in proc.stderr:
+            line = line.decode('ascii')
             stderr.append(line.rstrip('\n'))
         proc.wait()
         return (stdout, stderr)
 
     def _ntp_check(self, server):
         """
+        Check the ntp server is responding
         """
-        result = self._popen([ '/usr/sbin/sntp', '-t', '1', server ])
+        result = self._popen(['/usr/sbin/sntp', '-t', '1', server])
         for line in result[0]:
             if re.search(r'{}'.format(server), line):
                 if re.search(r'no.*response', line):
                     msg = line
-                    self.errors['time_server'] = [ msg ]
-
+                    self.errors['time_server'] = [msg]
 
     def _ping_check(self, server):
         """
+        Check that the time server responds to ping
         """
-        result = self._popen([ '/usr/bin/ping', '-c', '1', server ])
+        result = self._popen(['/usr/bin/ping', '-c', '1', server])
         for line in result[0]:
             if re.match(r'\d+ bytes from', line):
                 self.passed['time_server'] = "valid"
-        if not 'time_server' in self.passed:
+        if 'time_server' not in self.passed:
             if result[1]:
                 # Take stderr
                 self.errors['time_server'] = result[1]
             elif result[0][1]:
                 # Take second line of stdout
-                self.errors['time_server'] = [ result[0][1] ]
+                self.errors['time_server'] = [result[0][1]]
             else:
                 # how did we get here?
                 msg = "{} unavailable".format(server)
-                self.errors['time_server'] = [ msg ]
-
+                self.errors['time_server'] = [msg]
 
     def time_server(self):
         """
         Check that time server is available
         """
-        time_server = self.data[self.data.keys()[0]].get("time_server", "")
-        time_service = self.data[self.data.keys()[0]].get("time_service", "")
-        if time_service == 'disabled':
+        time_init = self.data[list(self.data.keys())[0]].get("time_init", "")
+        if time_init == 'disabled':
             self.passed['time_server'] = "disabled"
             return
 
-        if (time_service == 'ntp' and os.path.isfile('/usr/sbin/sntp')):
-            self._ntp_check(time_server)
-        else:
-            self._ping_check(time_server)
-
+        time_server = self.data[list(self.data.keys())[0]].get("time_server", "")
+        if not isinstance(time_server, list):
+            time_server = [time_server]
+        for server in time_server:
+            if time_init == 'ntp' and os.path.isfile('/usr/sbin/sntp'):
+                self._ntp_check(server)
+            else:
+                self._ping_check(server)
         self._set_pass_status('time_server')
 
     def fqdn(self):
@@ -549,6 +706,66 @@ class Validate(object):
 
         self._set_pass_status('fqdn')
 
+    # pylint: disable=line-too-long
+    def openattic(self):
+        """
+        Check for incompatible issues for openATTIC
+
+        openattic deprecated and is replaced by the ceph
+        dashboard. This validation checks if there
+        is a role in the policy and errors out.
+        """
+        for node in self.data.keys():
+            if ('roles' in self.data[node] and
+                    'openattic' in self.data[node]['roles']):
+                msg = ("openATTIC is replaced with the ceph-dashboard. "
+                       "Please remove openattic from your cluster with "
+                       "salt -I 'roles:openattic' state.apply ceph.rescind.openattic "
+                       "and "
+                       "salt -I 'roles:openattic' state.apply ceph.remove.openattic "
+                       "and finally remove the role-openattic line from your "
+                       "policy.cfg. To enable the ceph-dashboard please follow "
+                       "the documentation.")
+                self.errors.setdefault('openattic-disabled', []).append(msg)
+
+        self._set_pass_status('openattic-disabled')
+
+    def saltapi(self):
+        """
+        Log into the salt-api and verify that a token is returned.
+
+        Note: The duplicate functionality between the post section of the
+        DeepSea rpm and the salt state may come across as unnecessary.
+        However, some install using the Makefile and not the rpm.  Also,
+        the rpm will only attempt restarts of the salt-api, but neither
+        enable nor start the salt-api.  The salt state does.
+
+        In the expected case, the salt-master is restarted with the
+        sharedsecret when DeepSea is installed.  The salt-api is then
+        started and enabled as part of Stage 0.  This check is really
+        here for those that went a completely different path.
+        """
+        __opts__ = salt.config.client_config('/etc/salt/master')
+        # pylint: disable=unused-variable
+        stdout, stderr = self._popen(['curl', '-si', 'localhost:8000/login',
+                                      '-H', '"Accept: application/json"',
+                                      '-d' 'username=admin',
+                                      '-d', 'sharedsecret={}'.format(__opts__['sharedsecret']),
+                                      '-d', 'eauth=sharedsecret'])
+        try:
+            result = json.loads(stdout[-1])
+        except IndexError as err:
+            msg = ("Salt API is failing to authenticate"
+                   " - try 'systemctl restart salt-master': {}".format(err))
+            self.errors.setdefault('salt-api', []).append(msg)
+            return
+        if 'return' in result:
+            if 'token' in result['return'][0]:
+                self._set_pass_status('salt-api')
+                return
+        msg = "Unexpected return for Salt API - check logs"
+        self.errors.setdefault('salt-api', []).append(msg)
+
 # Note: the master_minion and ceph_version are specific to the Stage 0
 # validate.  These are also more similar to the ready.py for the firewall
 # check than to all the Stage 3 checks.  The difference is that these need
@@ -557,124 +774,703 @@ class Validate(object):
 
     def master_minion(self):
         """
-        Verify that the master minion setting is a minion
+        Verify that the master minion setting is not empty
         """
-        local = salt.client.LocalClient()
-        for node in self.data.keys():
-            data = local.cmd(self.data[node]['master_minion'] , 'pillar.get', [ 'master_minion' ], expr_form="glob")
-            break
-        if data:
-            self.passed['master_minion'] = "valid"
-        else:
-            msg = "Could not find minion {}. Check /srv/pillar/ceph/master_minion.sls".format(self.data[node]['master_minion'])
-            self.errors['master_minion'] = [ msg ]
+        # Checking the master module 'master.minion' causes the states of
+        # ceph.stage.0.minion to fail.  Leaving this example here, since we
+        # have no effective way of using master modules in python.
+        #
+        # __opts__ = salt.config.client_config('/etc/salt/master')
+        # __grains__ = salt.loader.grains(__opts__)
+        # __opts__['grains'] = __grains__
+        # __utils__ = salt.loader.utils(__opts__)
+        # __salt__ = salt.loader.minion_mods(__opts__, utils=__utils__)
+        # master_minion = __salt__['master.minion']()
 
+        if 'master_minion' in __pillar__ and __pillar__['master_minion'] is None:
+            msg = "master_minion is empty - "
+            msg += "Check master_minion setting in pillar"
+            self.errors['master_minion'] = [msg]
+        else:
+            self.passed['master_minion'] = "valid"
 
     def ceph_version(self):
         """
         Scan all minions for ceph versions in their repos.
         """
-        JEWEL_VERSION="10.2"
-        local = salt.client.LocalClient()
-        contents = local.cmd('*' , 'cmd.run', [ '/usr/bin/zypper info ceph' ], expr_form="glob")
-
-        for minion in contents.keys():
-            m = re.search(r'Version: (\S+)', contents[minion])
-            # Skip minions with no ceph repo
-            if m:
-                version = m.group(1)
-
-                # String comparison works for now
-                if version < JEWEL_VERSION:
-                    msg = "ceph version {} on minion {}".format(version, minion)
-                    self.errors.setdefault('ceph_version', []).append(msg)
-
+        self._check_installed()
+        self._check_available()
         self._set_pass_status('ceph_version')
 
-    def report(self):
-        self.printer.add(self.name, self.passed, self.errors, self.warnings)
+    def _check_installed(self):
+        """
+        Check for installed Ceph packages.  The query is faster and a fresh
+        install only happens once.
+        """
+        search = __utils__['deepsea_minions.show']()
+        results = self._silent_search(search, 'pkg.info_installed')
 
-def usage():
-    print "salt-run validate.pillar cluster_name"
-    print "salt-run validate.pillar cluster=cluster_name"
-    print "salt-run validate.pillars"
+        for minion in results:
+            if isinstance(results[minion], dict) and self.package in results[minion]:
+                if 'version' in results[minion][self.package]:
+                    version = self._check_version(minion, 'pkg.info_installed',
+                                                  results[minion][self.package]['version'])
+                    if (version and LooseVersion(version) < LooseVersion(LUMINOUS_VERSION)):
+                        prefix = 'Ceph version is older than Luminous on'
+                        self.errors.setdefault('ceph_version', [prefix]).append(minion)
+                else:
+                    # Something is really wrong
+                    prefix = 'Version missing from'
+                    self.errors.setdefault('ceph_version', [prefix]).append(minion)
+            else:
+                self.uninstalled.append(minion)
+
+    def _check_available(self):
+        """
+        Check for available Ceph packages.  If all minions have Ceph installed,
+        then the query has no results.
+        """
+        if not self.uninstalled:
+            return
+
+        search = "L@{}".format(",".join(self.uninstalled))
+        results = self._silent_search(search, 'pkg.info_available')
+        for minion in results:
+            if isinstance(results[minion], dict) and self.package in results[minion]:
+                if 'version' in results[minion][self.package]:
+                    version = self._check_version(minion, 'pkg.info_available',
+                                                  results[minion][self.package]['version'])
+                    if (version and LooseVersion(version) < LooseVersion(LUMINOUS_VERSION)):
+                        prefix = 'Ceph repository version is older than Luminous on'
+                        self.errors.setdefault('ceph_version', [prefix]).append(minion)
+                else:
+                    # Something is really wrong
+                    prefix = 'Repo version missing from'
+                    self.errors.setdefault('ceph_version', [prefix]).append(minion)
+            else:
+                prefix = 'Ceph repository is missing from'
+                self.errors.setdefault('ceph_version', [prefix]).append(minion)
+
+    def _silent_search(self, search, func):
+        """
+        Search that matches no minions prints to stdout confusing users when
+        mixed with the normal messages.  Suppress stdout.
+        """
+        _stdout = sys.stdout
+        sys.stdout = open(os.devnull, 'w')
+        results = self.local.cmd(search, func, [self.package], tgt_type="compound")
+        sys.stdout = _stdout
+        return results
+
+    def _check_version(self, minion, func, version):
+        """
+        Version may be an error message
+        """
+        if version.split('.')[0].isdigit():
+            return version
+        prefix = 'Ceph repository version {} is malformed from {}'.format(version, func)
+        self.errors.setdefault('ceph_version', [prefix]).append(minion)
+        return ""
+
+    def salt_version(self):
+        """
+        Scan all minions for their salt versions.
+        """
+        grains_data = self.local.cmd(self.search, 'grains.get',
+                                     ['saltversion'], tgt_type="compound")
+
+        for node in grains_data:
+            year, month, release = grains_data[node].split('.')
+            warning_str = '{node}: {year}.{month}.{release} not supported' \
+                          .format(node=node, year=year, month=month,
+                                  release=release)
+            if int(year) < 2017 or int(year) > 2019:
+                if 'salt_version' not in self.warnings:
+                    self.warnings['salt_version'] = [warning_str]
+                else:
+                    self.warnings['salt_version'].append(warning_str)
+        self._set_pass_status('salt_version')
+
+    def _accumulate_files_from(self, policy_file):
+        """
+        Process policy file skipping comments, unmatched lines
+        """
+        accumulated_files = []
+        proposals_dir = "/srv/pillar/ceph/proposals"
+
+        with open(policy_file, "r") as policy:
+            for line in policy:
+                # strip comments from the end of the line
+                line = re.sub(r'\s+#.*$', '', line)
+                line = line.rstrip()
+                if line.startswith('#') or not line:
+                    log.debug("Ignoring '{}'".format(line))
+                    continue
+                proposal_files = self._parse(proposals_dir + "/" + line)
+                if not proposal_files:
+                    log.warning("{} matched no files".format(line))
+                log.debug(line)
+                log.debug(proposal_files)
+                for proposal_file in proposal_files:
+                    if os.stat(proposal_file).st_size == 0:
+                        log.warning("Skipping empty file {}".format(proposal_file))
+                        continue
+                    accumulated_files.append(proposal_file)
+        return accumulated_files
+
+    def _stack_files(self, stack_dir, filetype='yml'):
+        """
+        Lists all files under stack_dir
+        """
+        stack_files = []
+        # pylint: disable=unused-variable
+        for drn, drns, flnm in os.walk(stack_dir):
+            for filename in flnm:
+                if filename.split('.')[-1] == filetype:
+                    stack_files.append((os.path.join(drn, filename)))
+        return stack_files
+
+    def lint_yaml_files(self):
+        """
+        Scans for sanity of yaml files
+        """
+        policy_file = '/srv/pillar/ceph/proposals/policy.cfg'
+        stack_dir = '/srv/pillar/ceph/stack'
+
+        stack_dir_files = self._stack_files(stack_dir, filetype='yml')
+        accum_files = self._accumulate_files_from(policy_file)
+
+        files = stack_dir_files + accum_files
+
+        for filename in files:
+            if os.stat(filename).st_size == 0:
+                log.warning("Skipping empty file {}".format(filename))
+                continue
+            with open(filename, 'r') as stream:
+                try:
+                    log.debug(yaml.load(stream))
+                except yaml.YAMLError as exc:
+                    # pylint: disable=no-member
+                    pmark = exc.problem_mark
+                    message = "syntax error in {}".format(pmark.name)
+                    message += " on line {} at position {}".format(pmark.line, pmark.column)
+                    self.errors.setdefault('yaml_syntax', []).append(message)
+        self._set_pass_status('yaml_syntax')
+
+    def _parse(self, line):
+        """
+        Return globbed files constrained by optional slices or regexes.
+        """
+        if " " in line:
+            parts = re.split(r'\s+', line)
+            files = sorted(glob.glob(parts[0]))
+            for keyvalue in parts[1:]:
+                key, value = keyvalue.split('=')
+                if key == "re":
+                    regex = re.compile(value)
+                    files = [match.group(0) for _file in files
+                             for match in [regex.search(_file)] if match]
+                elif key == "slice":
+                    # pylint: disable=eval-used
+                    files = eval("files{}".format(value))
+                else:
+                    log.warning("keyword {} unsupported".format(key))
+
+        else:
+            files = glob.glob(line)
+        return files
+
+    def deepsea_minions(self):
+        """
+        Verify deepsea_minions is set
+        """
+        if self.search:
+            if self.matches:
+                self.passed['deepsea_minions'] = "valid"
+            else:
+                # pylint: disable=line-too-long
+                msg = ("No minions matched for {} - See `man deepsea-minions`".format(self.search))
+                self.errors['deepsea_minions'] = [msg]
+        else:
+            msg = ("deepsea_minions not defined - " +
+                   "See `/srv/pillar/ceph/deepsea_minions.sls` for details")
+            self.errors['deepsea_minions'] = [msg]
+
+    def kernel(self):
+        """
+        Verify that target_core_rbd kernel module is available on iSCSI Gateways and admin node
+        """
+        targets = [node for node in self.data if node == 'admin' or
+                   ('roles' in self.data[node] and 'igw' in self.data[node]['roles'])]
+        check = self.local.cmd(targets, 'kmod.check_available', ['target_core_rbd'],
+                               tgt_type='list')
+        for node, passed in check.items():
+            if not passed:
+                self.errors.setdefault('kernel_module', []).append(
+                        "{}: kernel module not active".format(node))
+
+        if 'kernel_module' not in self.errors:
+            self.passed['kernel_module'] = 'valid'
+        self._set_pass_status('kernel_module')
+
+    def salt_updates(self):
+        """
+        Salt Updates available?
+        Adds ~3 seconds to the setup validation
+        independent of the cluster size
+        I tried using a mine(.get) here but it turns
+        out that I _very_ often get stale results..
+        Refreshing the mine everytime before running
+        this command seems to defeat the point of
+        using a mine in the first place.
+        """
+
+        updates = self.local.cmd(self.matches,
+                                 'packagemanager.list_salt_updates',
+                                 tgt_type='list')
+        updates_list = list(updates.values())
+        status = [x['status'] for x in updates_list]
+        packages = [x['packages'] for x in updates_list]
+        if False in status:
+            self.warnings['refresh_repos'] = ["Experienced trouble refreshing repositories."]
+        # flatten the packages list to avoid iterating over all minion['packages']
+        updates = [item for sublist in packages for item in sublist]
+        if not updates:
+            self.passed['salt_updates'] = "valid"
+        else:
+            # pylint: disable=line-too-long
+            msg = ("You have a salt update pending. In order to provide a smooth experience, please update these packages manually before proceeding. salt -I 'roles:master' state.apply ceph.updates.master and salt -G 'deepsea:*' state.apply ceph.updates.salt in case you have deepsea_minions defined otherwise run: salt -I 'cluster:ceph' state.apply ceph.updates.salt")
+            self.errors['salt_updates'] = [msg]
+
+    def ceph_updates(self):
+        """
+        Updates available?
+        Adds ~3 seconds to the setup validation
+        indipendent of the cluster size
+        I tried using a mine(.get) here but it turns
+        out that I _very_ often get stale results..
+        Refreshing the mine everytime before running
+        this command seems to defeat the point of
+        using a mine in the first place.
+        """
+        updates = self.local.cmd(self.matches,
+                                 'packagemanager.list_ceph_updates',
+                                 tgt_type='list')
+
+        updates_list = list(updates.values())
+        status = [x['status'] for x in updates_list]
+        packages = [x['packages'] for x in updates_list]
+        if False in status:
+            # pylint: disable=line-too-long
+            self.warnings['refresh_repos'] = ["Experienced trouble refreshing the repositories. Please find more information in the minion logs"]
+        # flatten the packages list to avoid iterating over all minion['packages']
+        updates = [item for sublist in packages for item in sublist]
+        if not updates:
+            self.passed['ceph_updates'] = "valid"
+        else:
+            # pylint: disable=line-too-long
+            msg = ("On or more of your minions have updates pending "
+                   "that might cause ceph-daemons to restart. "
+                   "This might extend the duration of this "
+                   "Stage depending on your cluster size. "
+                   "If you want to find out which packages will be "
+                   "updated, you can get the full list with "
+                   "salt -I 'cluster:ceph' packagemanager.list_ceph_updates")
+            self.warnings['ceph_updates'] = [msg]
+
+    def config_check(self):
+        """
+        Verify if config does not contain any deprecated config k:v pairs
+        """
+        issue_map = ConfigCheck().run()
+        for conf_obj in issue_map:
+            key = conf_obj.key
+            values = conf_obj.values
+            filename = conf_obj.filename
+            release = conf_obj.release
+            if not values:
+                msg = ("Key '{}' is deprecated since {release}. "
+                       "Please remove it from "
+                       "your config".format(key, release=release))
+            else:
+                values = '/'.join(values)
+                msg = ("Key '{}' with value(s) {} was "
+                       "found (deprecated since {}). "
+                       "Please adapt your config".format(key, values, release))
+
+            self.errors["{}::{}".format(filename, key)] = msg
+
+    def report(self):
+        """
+        Print the validation report
+        """
+        self.printer.add(self.name, self.skipped, self.passed, self.errors, self.warnings)
+        self.printer.print_result()
+
+
+class ConfigCheck(object):
+    """Class to detect deprecated config values in files.
+
+    Attributes:
+        base_path (str): Base path
+        map_file (str): Map file path
+        conf_path (str): Conf file path
+        suffix (str): Suffix for config files
+        files (list): List of files from glob
+        map (dict): Map of deprecated k:v
+        issues (list): List of found incidents
+    """
+    def __init__(self):
+
+        self.base_path = '/srv/salt/ceph/configuration/files'
+        self.map_file = '{}/deprecated_map.yml'.format(self.base_path)
+        self.conf_path = '{}/ceph.conf.d'.format(self.base_path)
+        self.suffix = '.conf'
+        self.files = glob.glob("{path}/*{suffix}".format(path=self.conf_path,
+                                                         suffix=self.suffix))
+        self.imported_ceph_conf = ("/srv/salt/ceph/configuration"
+                                   "/files/ceph.conf.import")
+        if os.path.isfile(self.imported_ceph_conf):
+            self.files.append(self.imported_ceph_conf)
+        self.map = self.load_map()
+        self.issues = []
+
+    def load_map(self):
+        """
+        Loads k:v map from disk
+
+        Returns:
+            YAML map
+        Raises:
+            YAMLError
+        """
+        with open(self.map_file, 'r') as _fd:
+            try:
+                return yaml.load(_fd)
+            except yaml.YAMLError:
+                log.error('Could not read {}'.format(self.map_file))
+
+    def extract_k_v(self, filename):
+        """ Reads lines from an open file and returns a generator
+        Args:
+            fn (str): filename
+        Yields:
+            str: line from file
+        """
+        config = ConfigObj(filename)
+        for key, value in config.items():
+            yield key, value
+
+    def compare_k_v_to_map(self, key, value):
+        """ Compares k:v against a map of k:v that are know to be deprecated
+        Args:
+            k (str): key from config
+            v (str): value from config
+        Returns:
+            DeprecatedConf: instance of obj or None
+        """
+        obj = None
+        for release, kv_map in self.map.items():
+            if key not in kv_map:
+                continue
+            if isinstance(kv_map[key], list):
+                obj = DeprecatedConf(key=key,
+                                     release=release)
+                for depr_val in kv_map[key]:
+                    if value == depr_val:
+                        obj.add_value(depr_val)
+            if isinstance(kv_map[key], str):
+                if kv_map[key] == 'any':
+                    obj = DeprecatedConf(key=key,
+                                         release=release,
+                                         values=[])
+                if kv_map[key] == value:
+                    obj = DeprecatedConf(key=key,
+                                         release=release,
+                                         values=[value])
+        return obj
+
+    def normalize_config_key(self, key):
+        """
+        In the ceph.conf underscores doesn't matter:
+
+        a_key = 1
+
+        is the same as
+
+        a key = 1
+
+        Normalize it by replacing all underscores with spaces
+        """
+        return key.replace('_', ' ')
+
+    def run(self):
+        """
+        Returns:
+            list: contains objects of DeprecatedConf
+        """
+        for filename in self.files:
+            for key, value in self.extract_k_v(filename):
+                conf_object = self.compare_k_v_to_map(
+                    self.normalize_config_key(key), value)
+                if not conf_object:
+                    continue
+                conf_object.set_filename(filename)
+                self.issues.append(conf_object)
+        return self.issues
+
+
+class DeprecatedConf(object):
+    """Simple class to store and access information conveniently.
+
+    Attributes:
+        filename (str): Filename the k:v is associated with
+        release (str): Release the k:v is deprecated in
+        key (str): Name of the key
+        value (list): List of found deprecated values
+    """
+
+    def __init__(self, **kwargs):
+        self.filename = kwargs.get('filename', None)
+        self.release = kwargs.get('release', None)
+        self.key = kwargs.get('key', None)
+        self.values = kwargs.get('values', [])
+
+    def add_value(self, value):
+        """ Adds value to values attribute
+        Args:
+            value (str): Deprecated config value
+        """
+        self.values.append(value)
+
+    def set_filename(self, filename):
+        """ Sets filename
+        Args:
+            fn (str): Filename the object is associated with
+        """
+        self.filename = filename
+
+
+def help_():
+    """
+    Usage
+    """
+    _usage = ('salt-run validate.pillars:\n'
+              'salt-run validate.pillar ceph:\n'
+              'salt-run validate.pillar cluster=ceph:\n\n'
+              '    Verify that Stage 3/deploy will succeed\n'
+              '\n\n'
+              'salt-run validate.setup:\n\n'
+              '    Verify that Stage 0/prep will succeed\n'
+              '\n\n'
+              'salt-run validate.prep:\n\n'
+              '    Verify that Stage 1/discovery will succeed\n'
+              '\n\n'
+              'salt-run validate.discovery:\n\n'
+              '    Verify that Stage 2/configuration will succeed\n'
+              '\n\n'
+              'salt-run validate.deploy:\n\n'
+              '    Verify that Stage 4/services will succeed\n'
+              '\n\n'
+              'salt-run validate.saltapi:\n\n'
+              '    Verify that the Salt API is working\n'
+              '\n\n')
+    print(_usage)
+    return ""
+
+
+def usage(func='None'):
+    """
+    Short usage
+    """
+    print("salt-run validate.{} cluster_name".format(func))
+    print("salt-run validate.{} cluster=cluster_name".format(func))
 
 
 def pillars(**kwargs):
     """
+    Check all clusters (Only one is supported currently)
     """
-    local = salt.client.LocalClient()
-    cluster = ClusterAssignment(local)
+    cluster = ClusterAssignment()
 
-    printer = printer = get_printer(**kwargs)
-
+    printer = get_printer(**kwargs)
 
     for name in cluster.names:
         pillar(name, printer=printer, **kwargs)
 
     printer.print_result()
+    return ""
 
 
-def pillar(cluster = None, printer=None, **kwargs):
+def discovery(cluster=None, printer=None, **kwargs):
+    """
+    Check that the pillar for each cluster meets the requirements to install
+    a Ceph cluster.
+    """
+    if not cluster:
+        usage(func='discovery')
+        exit(1)
+
+    # Restrict search to this cluster
+    if 'cluster' in __pillar__:
+        if __pillar__['cluster']:
+            # Salt accepts either list or string as target
+            search = "I@cluster:{}".format(cluster)
+    else:
+        search = None
+
+    printer = get_printer(**kwargs)
+    valid = Validate(cluster, search_pillar=True, printer=printer,
+                     search=search)
+    valid.deepsea_minions()
+    valid.lint_yaml_files()
+    valid.report()
+
+    if valid.errors:
+        return False
+
+    return True
+
+
+def config_check(cluster=None, printer=None, **kwargs):
+    """
+    Config Check user facing call
+    """
+    if not cluster:
+        usage(func='pillar')
+        exit(1)
+
+    # Restrict search to this cluster
+    search = "I@cluster:{}".format(cluster)
+
+    printer = get_printer(**kwargs)
+    valid = Validate(cluster, search_pillar=True, search_grains=True,
+                     printer=printer, search=search)
+    valid.config_check()
+    valid.report()
+    if valid.errors:
+        return False
+
+    return True
+
+
+def pillar(cluster=None, printer=None, **kwargs):
     """
     Check that the pillar for each cluster meets the requirements to install
     a Ceph cluster.
     """
 
-    has_printer = printer is not None
-    if not has_printer:
-        printer = get_printer(**kwargs)
-
     if not cluster:
-        usage()
+        usage(func='pillar')
         exit(1)
-
-    local = salt.client.LocalClient()
 
     # Restrict search to this cluster
     search = "I@cluster:{}".format(cluster)
 
-    pillar_data = local.cmd(search , 'pillar.items', [], expr_form="compound")
-    grains_data = local.cmd(search , 'grains.items', [], expr_form="compound")
+    printer = get_printer(**kwargs)
+    valid = Validate(cluster, search_pillar=True, search_grains=True,
+                     printer=printer, search=search)
+    valid.dev_env()
+    valid.fsid()
+    valid.public_network()
+    valid.public_interface()
+    valid.cluster_network()
+    valid.cluster_interface()
+    valid.check_ipversion()
+    valid.monitors()
+    valid.mgrs()
+    valid.storage()
+    valid.storage_role()
+    valid.rgw()
+    valid.ganesha()
+    valid.master_role()
+    valid.osd_creation()
+    valid.pool_creation()
+    valid.time_server()
+    valid.fqdn()
+    valid.report()
 
-    v = Validate(cluster, pillar_data, grains_data, printer)
-    v.dev_env()
-    v.fsid()
-    v.public_network()
-    v.public_interface()
-    v.cluster_network()
-    v.cluster_interface()
-    v.monitors()
-    v.storage()
-    v.ganesha()
-    v.master_role()
-    v.mon_host()
-    v.mon_initial_members()
-    v.osd_creation()
-    v.pool_creation()
-    v.time_server()
-    v.fqdn()
-    v.report()
-
-    if not has_printer:
-        printer.print_result()
-
-    if v.errors:
+    if valid.errors:
         return False
 
     return True
 
-def setup(**kwargs):
+
+def deploy(**kwargs):
     """
-    Check that initial files prior to any stage are correct
+    Verify that Stage 4, Services can succeed.
     """
-    local = salt.client.LocalClient()
-    pillar_data = local.cmd('*' , 'pillar.items', [], expr_form="glob")
     printer = get_printer(**kwargs)
 
-    v = Validate("setup", pillar_data, [], printer)
-    v.master_minion()
-    v.ceph_version()
-    v.report()
+    valid = Validate("deploy", search_pillar=True, search_grains=True,
+                     printer=printer)
+    valid.kernel()
+    valid.openattic()
+    valid.report()
 
-    printer.print_result()
+    if valid.errors:
+        return False
+
+    return True
+
+
+def saltapi(**kwargs):
+    """
+    Verify that the Salt API is working
+    """
+    printer = get_printer(**kwargs)
+    valid = Validate("salt-api", search_pillar=True, printer=printer)
+    valid.saltapi()
+    valid.report()
+
+    if valid.errors:
+        return False
+
+    return True
+
+
+def prep(**kwargs):
+    """
+    Enough users seem to skip around.  Verify that the basics are still
+    correct for Stage 1.
+    """
+    setup(**kwargs)
+
+
+def setup(**kwargs):
+    """
+    Check that initial files prior to any stage are correct.  These
+    validations are intended for fresh deployments.  Skip automatic
+    checks on working clusters.
+    """
+    printer = get_printer(**kwargs)
+    if ('bypass' in kwargs and kwargs['bypass'] and
+        __salt__['cephprocesses.mon']()):
+        # Disable all Salt lookups
+        valid = Validate("setup", search_pillar=False, search_grains=False,
+                         skip_init=True, printer=printer)
+        valid.skip('deepsea_minions')
+        valid.skip('master_minion')
+        valid.skip('ceph_version')
+        valid.skip('salt_version')
+        valid.report()
+        return True
+    valid = Validate("setup", search_pillar=True, printer=printer)
+    valid.deepsea_minions()
+    valid.master_minion()
+    valid.ceph_version()
+    valid.openattic()
+    valid.salt_version()
+    valid.ceph_updates()
+    valid.salt_updates()
+    valid.report()
+
+    if valid.errors:
+        return False
+
+    return True
+
+
+__func_alias__ = {
+                 'help_': 'help',
+                 }

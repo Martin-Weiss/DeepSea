@@ -1,53 +1,48 @@
+
+RADOS_URLS {
+  # Path to a ceph.conf file for this cluster.
+  Ceph_Conf = /etc/ceph/ceph.conf;
+
+  # RADOS_URLS use their own ceph client too. Authenticated access
+  # requires a cephx keyring file.
+  UserId = "{{ ganesha_role }}.{{ host }}";
+  watch_url = "rados://{{ nfs_pool }}/ganesha/conf-{{ host }}";
+}
+
 {% if salt.saltutil.runner('select.minions', cluster='ceph', roles='mds') != [] %}
-EXPORT
-{
-	Export_ID=1;
 
-	Path = /;
+# The libcephfs client will aggressively cache information while it
+# can, so there is little benefit to ganesha actively caching the same
+# objects. Doing so can also hurt cache coherency. Here, we disable
+# as much attribute and directory caching as we can.
+CACHEINODE {
+    # Size the dirent cache down as small as possible.
+    Dir_Chunk = 0;
 
-	Pseudo = /cephfs/;
-
-	Access_Type = RW;
-
-    FSAL {
-            Name = CEPH;
-            User_Id = "{{user_id}}";
-            Secret_Access_Key = "{{secret_access_key}}";
-    }
-
+    # size the inode cache as small as possible
+    NParts = 1;
+    Cache_Size = 1;
 }
 
 {% endif %}
 
-{% if salt.saltutil.runner('select.minions', cluster='ceph', roles=role) != [] %}
+{% if salt.saltutil.runner('select.minions', cluster='ceph', roles=rgw_role) != [] %}
 
-{% for user in salt['rgw.users'](role) %}
-EXPORT
-{
-	Export_ID={{ loop.index + 1 }};
-
-	Path = "/";
-
-	Pseudo = "/{{ user }}";
-
-	Access_Type = RW;
-
-	FSAL {
-		Name = RGW;
-		User_Id = "{{ user }}";
-		Access_Key_Id ="{{ salt['rgw.access_key'](user) }}";
-		Secret_Access_Key = "{{ salt['rgw.secret_key'](user) }}";
-	}
-}
-
-{% endfor %}
-
-{% set name = "client." + ganesha_role + "." + host %}
 RGW {
     ceph_conf = "/etc/ceph/ceph.conf";
-    name = "{{name}}";
+    name = "client.{{ rgw_role }}.{{ ganesha_role }}.{{ host }}";
     cluster = "ceph";
 }
 
 
 {% endif %}
+
+#NFS-Ganesha is compiled with kerberos support.
+#Set this value to true to use kerberos support.
+#Refer to man page "ganesha-core-config"
+NFS_KRB5
+{
+    Active_krb5 = false;
+}
+
+%url rados://{{ nfs_pool }}/ganesha/conf-{{ host }}

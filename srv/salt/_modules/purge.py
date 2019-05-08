@@ -1,15 +1,20 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
 
-import salt.config
+"""
+Cleanup related operations for resetting the Salt environment and removing
+a Ceph cluster
+"""
+
+from __future__ import absolute_import
 import logging
 import os
 import shutil
-import yaml
 import pwd
-import grp
-import os
+import grp  # pylint: disable=3rd-party-module-not-gated
+import yaml
 
 log = logging.getLogger(__name__)
+
 
 def configuration():
     """
@@ -41,8 +46,7 @@ def roles():
             content.pop('roles')
         with open(pathname, "w") as sls_file:
             sls_file.write(yaml.dump(content, Dumper=friendly_dumper,
-                                                  default_flow_style=False))
-        
+                           default_flow_style=False))
 
 
 def proposals():
@@ -51,8 +55,8 @@ def proposals():
     """
     proposals_dir = '/srv/pillar/ceph/proposals'
     for path in os.listdir(proposals_dir):
-        for partial in [ 'role-', 'cluster-', 'profile-', 'config' ]:
-            if partial in path: 
+        for partial in ['role-', 'cluster-', 'profile-', 'config']:
+            if partial in path:
                 log.info("removing {}/{}".format(proposals_dir, path))
                 shutil.rmtree("{}/{}".format(proposals_dir, path))
 
@@ -76,10 +80,9 @@ def default():
     os.makedirs("{}/{}".format(stack_default, 'ceph'))
     with open(pathname, "w") as sls_file:
         sls_file.write(yaml.dump(preserve, Dumper=friendly_dumper,
-                                                  default_flow_style=False))
-
+                       default_flow_style=False))
 
     uid = pwd.getpwnam("salt").pw_uid
     gid = grp.getgrnam("salt").gr_gid
-    for path in [ stack_default, "{}/{}".format(stack_default, 'ceph'), pathname ]:
+    for path in [stack_default, "{}/{}".format(stack_default, 'ceph'), pathname]:
         os.chown(path, uid, gid)

@@ -1,0 +1,10 @@
+benchmark:
+  # where cephfs will be mounted on the client nodes
+  work-directory: /run/ceph_bench
+  # working directory for master, mostly to store jobfiles
+  job-file-directory: /run/ceph_bench_jobs
+  # location where run logs end up on the master node
+  log-file-directory: /var/log/ceph_bench_logs
+  default-collection: simple.yml
+  # extra mount options for each client to use
+  extra_mount_opts: nocrc

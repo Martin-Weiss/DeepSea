@@ -1,12 +1,19 @@
-#!/usr/bin/python
+# -*- coding: utf-8 -*-
+# pylint: disable=fixme
 
-import salt.config
+"""
+RadosGW related functions for users, configurations and keys
+"""
+
+from __future__ import absolute_import
 import logging
-from subprocess import call, Popen, PIPE
+# pylint: disable=incompatible-py3-code
+from subprocess import Popen, PIPE
 import os
 import json
 
 log = logging.getLogger(__name__)
+
 
 def configurations():
     """
@@ -23,7 +30,7 @@ def configurations():
                         set(__pillar__['roles']))
 
         if 'rgw' in __pillar__['roles']:
-            return [ 'rgw' ]
+            return ['rgw']
     return []
 
 
@@ -33,83 +40,109 @@ def configuration(role):
     the ganesha roles silver and silver-common will both return silver.
     """
     if role == 'ganesha':
-        role = 'rgw'
+        return 'rgw'
     if 'roles' in __pillar__:
         if 'rgw_configurations' in __pillar__:
-            for rgw_config in  __pillar__['rgw_configurations'].keys():
+            for rgw_config in __pillar__['rgw_configurations']:
                 if rgw_config in role:
                     return rgw_config
-    return 
+    return None
 
 
-
-def users(role):
+def users(realm='default', contains=None):
     """
-    Return the list of users.  Consider the default rgw and ganesha roles
-    equivalent.
+    Return the list of users for a realm.
     """
-    if 'roles' in __pillar__:
-        if 'rgw_configurations' in __pillar__:
-            if role == 'ganesha' or role == 'rgw':
-                # Special case for default names
-                users = [ u['uid'] for u in __pillar__['rgw_configurations']['rgw']['users'] ]
-                log.info("users: {}".format(users))
-                return users
-            if role in __pillar__['rgw_configurations']:
-                users = [ u['uid'] for u in __pillar__['rgw_configurations'][role]['users'] ]
-                log.info("users: {}".format(users))
-                return users
-        if 'rgw' in __pillar__['roles']:
-            return []
+    cmd = "radosgw-admin user list --rgw-realm={}".format(realm)
+    retcode, stdout, _ = __salt__['helper.run'](cmd)
+    if retcode != '0':
+        if contains:
+            return [item for item in json.loads(stdout) if contains in item]
+        return json.loads(stdout)
     return []
 
-def add_users(pathname="/srv/salt/ceph/rgw/cache"):
+
+def add_users(pathname="/srv/salt/ceph/rgw/cache", jinja="/srv/salt/ceph/rgw/files/users.j2"):
     """
-    Write each user to its own file
+    Write each user to its own file.
     """
-    if 'rgw_configurations' not in __pillar__:
+    conf_users = __salt__['slsutil.renderer'](jinja)
+    log.debug("users rendered: {}".format(conf_users))
+
+    if conf_users is None or 'realm' not in conf_users:
         return
-    
-    for role in __pillar__['rgw_configurations']:
-        for user in __pillar__['rgw_configurations'][role]['users']:
+
+    for realm in conf_users['realm']:
+        # Get the existing users.
+        existing_users = users(realm)
+
+        for user in conf_users['realm'][realm]:
             if 'uid' not in user or 'name' not in user:
                 raise ValueError('ERROR: please specify both uid and name')
 
-            base_cmd = "radosgw-admin user create --uid={uid} --display-name={name}".format(
-                uid=user['uid'],
-                name=user['name'],
-            )
-
-            args = ''
-            if 'email' in user:
-                args += " --email=%s" % user['email']
-
-            if 'system' in user and user['system'] is True:
-                args += " --system"
-
-            if 'access_key' in user:
-                args += " --access-key=%s" % user['access_key']
-
-            if 'secret' in user:
-                args += " --secret=%s" % user['secret']
-
-            command = base_cmd + args
-
-            proc = Popen(command.split(), stdout=PIPE, stderr=PIPE)
             filename = "{}/user.{}.json".format(pathname, user['uid'])
-            with open(filename, "w") as json:
-                for line in proc.stdout:
-                    json.write(line)
-            for line in proc.stderr:
-                log.info("stderr: {}".format(line))
 
-            proc.wait()
-        
-        
-        
+            # Create the RGW user if it does not exist.
+            if not user['uid'] in existing_users:
+                base_cmd = ("radosgw-admin user create --uid={uid} "
+                            "--display-name={name} "
+                            "--rgw-realm={realm}".format(uid=user['uid'],
+                                                         name=user['name'],
+                                                         realm=realm))
+                args = ''
+                if 'email' in user:
+                    args += " --email={}".format(user['email'])
+                if 'system' in user and user['system']:
+                    args += " --system"
+                if 'access_key' in user:
+                    args += " --access-key={}".format(user['access_key'])
+
+                if 'secret' in user:
+                    args += " --secret={}".format(user['secret'])
+                command = base_cmd + args
+                proc = Popen(command.split(), stdout=PIPE, stderr=PIPE)
+                filename = "{}/user.{}.json".format(pathname, user['uid'])
+                with open(filename, "w") as _json:
+                    for line in proc.stdout:
+                        line = __salt__['helper.convert_out'](line)
+                        _json.write(line)
+                for line in proc.stderr:
+                    line = __salt__['helper.convert_out'](line)
+                    log.info("stderr: {}".format(line))
+                    proc = Popen(command.split(), stdout=PIPE, stderr=PIPE)
+                    with open(filename, "w") as _json:
+                        # pylint: disable=redefined-outer-name
+                        for line in proc.stdout:
+                            line = __salt__['helper.convert_out'](line)
+                            _json.write(line)
+                    # pylint: disable=redefined-outer-name
+                    for line in proc.stderr:
+                        line = __salt__['helper.convert_out'](line)
+                        log.info("stderr: {}".format(line))
+
+                proc.wait()
+            else:
+                # Create the JSON file if it does not exist. This happens
+                # when the RGW user was manually created beforehand.
+                # pylint: disable=useless-else-on-loop
+                if not os.path.exists(filename):
+                    args = ['radosgw-admin', 'user', 'info']
+                    args.extend(['--uid', user['uid']])
+                    args.extend(['--rgw-realm', realm])
+                    proc = Popen(args, stdout=PIPE, stderr=PIPE)
+                    with open(filename, "w") as _json:
+                        for line in proc.stdout:
+                            line = __salt__['helper.convert_out'](line)
+                            _json.write(line)
+                    for line in proc.stderr:
+                        line = __salt__['helper.convert_out'](line)
+                        log.info("stderr: {}".format(line))
+                    proc.wait()
+
+
 def _key(user, field, pathname):
     """
-    Read the filename and return the key value.  
+    Read the filename and return the key value.
     """
     data = None
     filename = "{}/user.{}.json".format(pathname, user)
@@ -118,15 +151,22 @@ def _key(user, field, pathname):
         with open(filename, 'r') as user_file:
             data = json.load(user_file)
     else:
-        return
+        return None
 
     return data['keys'][0][field]
 
+
 def access_key(user, pathname="/srv/salt/ceph/rgw/cache"):
+    """
+    Returns the access key for a given user
+    """
     if not user:
-        raise ValueError("ERROR: no user specified") 
+        raise ValueError("ERROR: no user specified")
     return _key(user, 'access_key', pathname)
 
-def secret_key(user, pathname="/srv/salt/ceph/rgw/cache"):
-    return _key(user, 'secret_key', pathname)
 
+def secret_key(user, pathname="/srv/salt/ceph/rgw/cache"):
+    """
+    Returns the secret key for a given user
+    """
+    return _key(user, 'secret_key', pathname)

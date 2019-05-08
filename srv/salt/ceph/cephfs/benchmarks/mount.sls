@@ -10,12 +10,15 @@ create mount point:
     - makedirs: True
 
 mount cephfs:
-  mount.mounted:
-    - name:  {{ salt['pillar.get']('benchmark:work-directory') }}
-    - device: {{ salt['pillar.get']('mon_host')|join(',') }}:/
-    - fstype: ceph
-    - opts : name=admin,secret={{ salt.cmd.run('ceph-authtool -p /etc/ceph/ceph.client.admin.keyring') }}
-    - persist: False
-    - require:
-      - file: create mount point
+  cmd.run:
+    - name: mount.ceph {{ salt['pillar.get']('mount_mon_hosts') }}:/ {{ salt['pillar.get']('benchmark:work-directory') }} {{ salt['pillar.get']('mount_opts') }}
+  #mount.mounted:
+    #- name:  {{ salt['pillar.get']('benchmark:work-directory') }}
+    #- device: {{ salt['pillar.get']('mon_host')|join(',') }}:/
+    #- fstype: ceph
+    #- opts : name=deepsea_cephfs_bench,secretfile=/etc/ceph/ceph.client.deepsea_cephfs_bench.secret
+    #- persist: False
+    #- require:
+      #- file: create mount point
+      #- file: cephfs bench keyring
 

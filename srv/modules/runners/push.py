@@ -1,14 +1,5 @@
-#!/usr/bin/python
-
-import os
-import errno
-import glob
-import yaml
-import pprint
-import logging
-import imp
-import re
-import shutil
+# -*- coding: utf-8 -*-
+# pylint: disable=modernize-parse-error,anomalous-backslash-in-string
 
 """
 This runner is the complement to the populate.proposals runner.
@@ -36,10 +27,6 @@ Cluster assignment:
 Role assignment:
     any role-* directories contain sls files and stack related yaml files.
     One or more roles can be included for any minion.
-Hardware profile:
-    any profile-* directories represent a specific OSD
-    assignment for a particular chassis.  All sls and yaml files are
-    included for a given hardware profile.
 
 For automation, an optional fifth part is
 
@@ -52,17 +39,40 @@ Customization:
     desired values in /srv/pillar/ceph/stack directory tree and likely
     unnecessary.  This will still work and may prove useful for some.
 
-All files are overwritten in the destination tree /srv/pillar/ceph/stack/default.
+All files are overwritten in the destination tree /srv/pillar/ceph/stack/default.sls
 
 """
 
-cur_file_path = os.path.dirname(os.path.realpath(__file__))
-stack_path = os.path.abspath('{}/../pillar/stack.py'.format(cur_file_path))
-stack = imp.load_source('pillar.stack', stack_path)
+from __future__ import absolute_import
+from __future__ import print_function
+import os
+import errno
+import glob
+import logging
+import re
+import shutil
+import sys
+import yaml
+sys.path.append('/srv/modules/pillar')
+# pylint: disable=import-error,3rd-party-module-not-gated,redefined-builtin,wrong-import-position
+from stack import _merge_dict
+
+
 log = logging.getLogger(__name__)
 
 
-def proposal(filename = "/srv/pillar/ceph/proposals/policy.cfg", dryrun = False):
+def help_():
+    """
+    Usage
+    """
+    usage = ('salt-run push.proposal:\n\n'
+             '    Reads the policy.cfg and generates the Salt configuration\n'
+             '\n\n')
+    print(usage)
+    return ""
+
+
+def proposal(filename="/srv/pillar/ceph/proposals/policy.cfg", dryrun=False):
     """
     Read the passed filename, organize the files with common subdirectories
     and output the merged contents into the pillar.
@@ -75,7 +85,23 @@ def proposal(filename = "/srv/pillar/ceph/proposals/policy.cfg", dryrun = False)
     pillar_data.output(common)
     return True
 
+
+def organize(filename="/srv/pillar/ceph/proposals/policy.cfg"):
+    """
+    Read the passed filename, organize the files with common subdirectories
+    """
+    if not os.path.isfile(filename):
+        log.warning("{} is missing".format(filename))
+        return ""
+    pillar_data = PillarData()
+    common = pillar_data.organize(filename)
+    return common
+
+
 def _create_dirs(path, root):
+    """
+    Verbose mkdir
+    """
     try:
         os.makedirs(path)
     except OSError as err:
@@ -86,6 +112,7 @@ def _create_dirs(path, root):
             '''.format(path, root))
             raise err
 
+
 class PillarData(object):
     """
     Imagine if rsync could merge the contents of YAML files.  Combine
@@ -93,7 +120,7 @@ class PillarData(object):
     tree.
     """
 
-    def __init__(self, dryrun):
+    def __init__(self, dryrun=False):
         """
         The source is proposals_dir and the destination is pillar_dir
         """
@@ -114,7 +141,7 @@ class PillarData(object):
         self._clean()
 
         for pathname in common.keys():
-            merged = self._merge(pathname, common)
+            merged = _merge(pathname, common)
             filename = self.pillar_dir + "/" + pathname
             self._default(filename, merged)
 
@@ -122,9 +149,11 @@ class PillarData(object):
                 # Use the entire list of minions under cluster to populate
                 # stack/{cluster_name}/minions.  Skip unassigned.
                 if merged['cluster'] != "unassigned":
-                    custom = self.pillar_dir + "/" + re.sub(r'cluster', "stack/{}/minions".format(merged['cluster']), re.sub(r'sls', 'yml', pathname))
+                    newpath = re.sub(r'sls', 'yml', pathname)
+                    relative = re.sub(r'cluster',
+                                      "stack/{}/minions".format(merged['cluster']), newpath)
+                    custom = (self.pillar_dir + "/" + relative)
                     self._custom(custom)
-
 
             if pathname.startswith("stack"):
                 # Mirror the default tree
@@ -141,7 +170,6 @@ class PillarData(object):
         if os.path.isdir(stack_default):
             shutil.rmtree(stack_default)
 
-
     def _default(self, filename, merged):
         """
         Output the merged contents to the default tree
@@ -152,8 +180,9 @@ class PillarData(object):
         log.info("Writing {}".format(filename))
         if not self.dryrun:
             with open(filename, "w") as yml:
-                yml.write(yaml.dump(merged, Dumper=self.friendly_dumper,
-                                                  default_flow_style=False))
+                yml.write(yaml.dump(merged,
+                          Dumper=self.friendly_dumper,
+                          default_flow_style=False))
 
     def _custom(self, custom):
         """
@@ -174,99 +203,113 @@ class PillarData(object):
                             custom_split[1])
                     yml.write("# {}\n".format(custom))
                     yml.write("# Overwrites configuration in {}\n".format(custom_for))
-                    self._examples(custom, yml)
+                    _examples(custom, yml)
 
-
-    def _examples(self, custom, yml):
-        """
-        Provide commented examples for admin convenience
-        """
-        if 'cluster.yml' in custom:
-            text = '''
-              #rgw_configurations:
-              #  rgw:
-              #    users:
-              #      - { uid: "demo", name: "Demo", email: "demo@demo.nil" }
-              #      - { uid: "demo1", name: "Demo1", email: "demo1@demo.nil" }
-              '''
-            text = re.sub(re.compile("^ {14}", re.MULTILINE), "", text)
-            yml.write(text)
-
-
-    def _merge(self, pathname, common):
-        """
-        Merge the files via stack.py
-        """
-        merged = {}
-        for filename in common[pathname]:
-            with open(filename, "r") as content:
-                content = yaml.safe_load(content)
-                merged = stack._merge_dict(merged, content)
-        return merged
-
-
-
-    def organize(self, filename):
+    def organize(self, policy_filename):
         """
         Associate all filenames with their common subdirectory.
         """
         common = {}
-        with open(filename, "r") as policy:
+        with open(policy_filename, "r") as policy:
             for line in policy:
+                log.debug(line)
                 # strip comments from the end of the line
-                line = re.sub('\s+#.*$', '', line)
-                line = line.rstrip()
-                if (line.startswith('#') or not line):
+                line = re.sub(r'\s+#.*$', '', line)
+                line = line.strip()
+                if line.startswith('#') or not line:
                     log.debug("Ignoring '{}'".format(line))
                     continue
-                files = self._parse(self.proposals_dir + "/" + line)
-                if not files:
+                try:
+                    proposal_files = _parse(self.proposals_dir + "/" + line)
+                except ValueError:
+                    log.exception('''
+                    ERROR: Mailformed {}: {}
+                    '''.format(policy_filename, line))
+                    proposal_files = []
+                if not proposal_files:
                     log.warning("{} matched no files".format(line))
                 log.debug(line)
-                log.debug(files)
-                for filename in files:
-                    if os.stat(filename).st_size == 0:
-                        log.warning("Skipping empty file {}".format(filename))
+                log.debug(proposal_files)
+                for proposal_file in proposal_files:
+                    if os.stat(proposal_file).st_size == 0:
+                        log.warning("Skipping empty file {}".format(proposal_file))
                         continue
-                    if os.path.isfile(filename):
-                        pathname = self._shift_dir(filename.replace(self.proposals_dir, ""))
-                        if not pathname in common:
+                    if os.path.isfile(proposal_file):
+                        pathname = _shift_dir(proposal_file.replace(
+                                              self.proposals_dir, ""))
+                        if pathname not in common:
                             common[pathname] = []
-                        common[pathname].append(filename)
+                        common[pathname].append(proposal_file)
                     else:
-                        log.warning("{} does not exist".format(filename))
+                        log.warning("{} does not exist".format(proposal_file))
 
         # This should be in a conditional, but
         # getEffectiveLevel returns 1 no matter setting
-        for pathname in sorted(common.keys()):
+        for pathname in sorted(common):
             log.debug(pathname)
             for filename in common[pathname]:
                 log.debug("    {}".format(filename))
         return common
 
-    def _parse(self, line):
-        """
-        Return globbed files constrained by optional slices or regexes.
-        """
-        if " " in line:
-            parts = re.split('\s+', line)
-            files = sorted(glob.glob(parts[0]))
-            for kv in parts[1:]:
-                k, v = kv.split('=')
-                if k == "re":
-                    regex = re.compile(v)
-                    files = [m.group(0) for l in files for m in [regex.search(l)] if m]
-                elif k == "slice":
-                    files = eval("files{}".format(v))
-                else:
-                    log.warning("keyword {} unsupported", k)
 
-        else:
-            files = glob.glob(line)
-        return files
+def _examples(custom, yml):
+    """
+    Provide commented examples for admin convenience
+    """
+    if 'cluster.yml' in custom:
+        text = '''
+          #rgw_configurations:
+          #  rgw:
+          #    users:
+          #      - { uid: "demo", name: "Demo", email: "demo@demo.nil" }
+          #      - { uid: "demo1", name: "Demo1", email: "demo1@demo.nil" }
+          '''
+        text = re.sub(re.compile("^ {14}", re.MULTILINE), "", text)
+        yml.write(text)
 
-    def _shift_dir(self, path):
-        """
-        Remove the leftmost directory, expects beginning /
-        """
-        return "/".join(path.split('/')[2:])
+
+def _merge(pathname, common):
+    """
+    Merge the files via stack.py
+    """
+    merged = {}
+    for filename in common[pathname]:
+        with open(filename, "r") as content:
+            content = yaml.safe_load(content)
+            # pylint: disable=protected-access
+            merged = _merge_dict(merged, content)
+    return merged
+
+
+def _parse(line):
+    """
+    Return globbed files constrained by optional slices or regexes.
+    """
+    if " " in line:
+        parts = re.split(r'\s+', line)
+        files = sorted(glob.glob(parts[0]))
+        for optional in parts[1:]:
+            filter_type, value = optional.split('=')
+            if filter_type == "re":
+                regex = re.compile(value)
+                files = [m.group(0) for l in files for m in [regex.search(l)] if m]
+            elif filter_type == "slice":
+                # pylint: disable=eval-used
+                files = eval("files{}".format(value))
+            else:
+                log.warning("keyword {} unsupported".format(filter_type))
+
+    else:
+        files = glob.glob(line)
+    return files
+
+
+def _shift_dir(path):
+    """
+    Remove the leftmost directory, expects beginning /
+    """
+    return "/".join(path.split('/')[2:])
+
+__func_alias__ = {
+                 'help_': 'help',
+                 }

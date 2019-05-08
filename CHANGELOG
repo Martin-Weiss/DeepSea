@@ -1,0 +1,1051 @@
+-------------------------------------------------------------------
+Tue Apr 30 18:00:34 UTC 2019 - Joshua Schmid <jschmid@suse.com>
+
+- Version: 0.9.18
+- core: do not skip disks that are not used by ceph
+- ceph-volume: use re to extract json string from c-v output
+- iscsi: disabled SSL by default
+- iscsi: SSL support for ceph-iscsi deployment
+- do no parse ceph output when no valid json
+- disks runner: guard destroyed() against roles:master being absent
+- monitoring: add init -> default pattern to prometheus state
+- Avoid running drivegroup based osd deployment post-upgrade
+- monitoring/prometheus: add support for user provided rule files
+- monitoring: remove old alertmanager state
+- monitoring/prometheus: put scrape configs under scrape_configs subdir
+- monitoring: prometheus scrapes grafana via https
+- monitoring: add alertmanager service discovery to prometheus config
+- monitoring: add option to pass flags to prometheus
+- monitoring: deploy grafana with ssl by default
+- monitoring: add alertmanager rescind
+- monitoring: add alertmanager install, service and config
+- install ceph in packages.common
+- Fix typo: URL reference to Drive-Groups wiki
+- rpm: declare runtime dependencies in the spec file
+- monitoring: set grafana default theme to light
+- Makefile: make "make rpm" less likely to produce a wrong version number
+- monitoring: update smartmon.sh, fix label dimension inconsistency
+- crc_method: deepsea_minions can be a compound target
+- dashboard: support for enabling/disabling SSL and set certificates
+
+-------------------------------------------------------------------
+Tue Apr  9 14:12:34 UTC 2019 - Jan Fajerski <jan.fajerski@suse.com>
+
+- Version: 0.9.17
+- rgw: start making beast as a default frontend
+- adapt remove and replace logic to ceph-volume + tests
+- mgr_orch: return raw ceph_volume output in get_inventory()
+- populate: create storage roles for all nodes
+- iscsi: use iSCSi gateway public IP address in dashboard configuration
+- Remove RGW demo bucket creation
+- ganesha: find pool during stage execution (instead of in parsing phase)
+- Support IPv6
+
+-------------------------------------------------------------------
+Thu Mar 26 20:43:20 UTC 2019 - jschmid@suse.com
+
+- Version: 0.9.16
+- qa: disable apparmor at end of functest
+- ganesha: fix radosgw keyring for use by nfs-ganesha
+- ganesha: store ganesha configuration in RADOS pool
+- radosgw: automatic configure ceph-dashboard
+- orchestrator: disable orchestrator for now
+- spec: fix igw file/dir list
+- packages: added "curl" to common
+- iscsi: wait for ceph-iscsi API to be available
+- iscsi: fix service restart
+- iscsi: fix gateway restart
+- iscsi: fixes several bugs
+- iscsi: add igw minions to dashboard
+- iscsi: make rbd_pool function more generic
+- iscsi: find or create rbd pool to store ceph-iscsi configuration
+- igw: iSCSI gateway deployment based on ceph-iscsi
+- runner: select: allow specify list of roles in public_addresses
+- stage 3: configure deepsea mgr orchestrator module
+- cli: fix function args string formating
+- Stage 4: add missing failhards to radosgw/core states
+- populate runner: fix typo "cepg"
+- functests/1node: disable broken symlink test
+- cli: automatically wrap of step lines
+- Makefile: install symlink tests and functests
+- cli: terminal_outputter: fix simple output when printing state exception
+- cli: fix stdout/stderr redirection for python 2
+- Update CHANGELOG
+- cli: fix simple outputter when printing stage exception
+- prometheus: fix populate_mgr_scrape_configs states to work with deepsea-cli
+- cli: handles render failure when minion does not respond
+- ceph.conf: disable msgr2
+- Add runner to enable/disable storage enclosure LED.
+
+-------------------------------------------------------------------
+Thu Mar 13 9:30:20 UTC 2019 - jschmid@suse.com
+
+- Version: 0.9.15
+- Add dashboard orchestration
+- monitoring/grafana: add config for mgr dashboard
+- monitoring: partition node_exporter targets
+- stage 3: wait for mgr to be available after it's initially deployed
+- Handle broken symlinks
+- Install the ceph-mgr-dashboard on mgr nodes
+- monitoring: defer deployment to stage 3
+- Support ceph-iscsi
+- disable restart.mgr tests
+- Review functests
+- populate should overwrite the stack/default tree at all times
+- Add ceph.salt.crc to stage.0
+- force 'adler32' as CRC method
+
+-------------------------------------------------------------------
+Thu Feb 26 23:08:20 UTC 2019 - jschmid@suse.com
+
+- Version: 0.9.14
+- Assign drives based on filter rules (SES-150)
+- This patch completely changes the way we define osd layouts.
+- Please refer to https://github.com/SUSE/DeepSea/wiki/Drive-Groups for documentation.
+- monitoring: avoid failed state if no monitoring roles are deployed
+- monitoring: simple monitoring restarts
+- monitoring: add prometheus and grafana to cephprocesses
+- monitoring: add prometheus and grafana rescind
+- monitoring: setup and provision grafana with upstream dashboards
+- monitoring: deploy to prometheus roles
+- monitoring: restarts, avoid "matched no target"
+- This patchset add two new roles. "grafana" and "prometheus"
+
+-------------------------------------------------------------------
+Thu Feb 21 12:38:20 UTC 2019 - jschmid@suse.com
+
+- Version: 0.9.13
+- ganesha: drop nfs-ganesha-utils install
+- install_ganesha: failhard
+
+-------------------------------------------------------------------
+Tue Feb 12 19:01:19 UTC 2019 - jschmid@suse.com
+
+- Version: 0.9.12
+- Fixes for upgrade procedure
+- Check for digit before 'p'
+- Makefile: pass --long option to git describe
+- packages/common: Fix typo "realease"
+- Add retry logic to readlink for seemingly stubborn systems
+- Fix lint errors.
+- Move pytest to base_python 3.6 and adapt tests accordingly
+ 
+-------------------------------------------------------------------
+Tue Jan 29 14:01:19 UTC 2019 - jschmid@suse.com
+
+- Version: 0.9.11
+- Save and restore reweight in addition to weight
+- look for values of test.ping returns rather only the existence of the key
+- Fix auth caps for openstack.integrate
+- Fix unicode output error
+
+-------------------------------------------------------------------
+Fri Dec 21 11:26:19 UTC 2018 - jschmid@suse.com
+
+- Version 0.9.10
+- tuned: disable dynamic tuning for all profiles                                                                                                                                                                                                                                   │············································
+- ceph-volume dummy: translate by-id device paths to short device paths                                                                                                                                                                                                            │············································
+- Change default timeout to 1 hour for redeploying OSDs                                                                                                                                                                                                                            │············································
+- Remove populate.engulf_existing_cluster                                                                                                                                                                                                                                          │············································
+- Harden split_partition function to do not fail in such case:
+
+-------------------------------------------------------------------
+Fri Nov 27 13:00:19 UTC 2018 - jschmid@suse.com
+
+- Version 0.9.9
+- Makefile: Install python-configobj
+- Add mgr_orch runner to support ceph-mgr deepsea orchestrator module
+- tests: don't call helper_specs fixture directly
+- populate/engulf: don't add cluster-unassigned line
+- Return version in cephdisk.version() instead of printing it. So ``salt '*' cephdisks.version`` will output correct values instead of None.
+- Consider iptables not installed as passing
+- Check configs for deprecated k:v pairs and report
+- build/ops: install python3-prometheus-client
+- osd.py: adjust pg_states() method to Nautilus
+- remove traces of oA
+- qa: disable engulf functional test (not working with LVM)
+- Makefile: Fix two missing $DESTDIRs
+- Makefile: clean up suse conditional blocks
+- Prevent rgw-ssl name collision when pushing certificates and using custom rgw roles
+
+-------------------------------------------------------------------
+Fri Nov 11 13:15:19 UTC 2018 - jschmid@suse.com
+
+- Version 0.9.8
+- dummy lvm: add basic ceph-volume implementation and use it
+- Pin the linter to a pre-change version
+- lrbd service restart instead of reload on `ui_iscsi.deploy`
+- Correct conditional check for custom configurations
+- Makefile: Check for correct ID in /etc/os-release
+- Add more info in the warning/error validators
+- Add repo refresh check
+- Add validation for pending updates
+- cli: prettyprint: force stdout flush in all stdout writes
+- Makefile: drop redundant PIPCMD
+- Add documentation to manpage and trim whitespaces in existing pages
+- Refactor cephprocesses module and add tests for it
+- fix: only check OSDs after restarting an OSD
+- Add cluster shutdown, startup functionality
+- Remove hardcoded nvme devices, support generic convention
+- Support forced restart
+- mds/restart: fix restarts when minion_id is fqdn
+- cli: terminal_outputter: don't dereference a runner step that already finished
+- cli: stage_parser: fix state rendering when no minions match the target
+- qa: add baseline engulf functional test
+- remove: wolffish from master
+- populate/engulf: support optional master_minion
+- cephinspector: Fix typo preventing OSD detection
+- populate/engulf: fix local variable in _get_existing_cluster_networks()
+- populate/engulf: use ConfigParser.read_string() instead of StringIO
+- populate/engulf: overwrite profile-import during engulf
+- populate/engulf: use .format for string manipulation
+- populate/engulf: unify returns and error messages
+- populate/engulf: print info about engulfed config
+- Remove journal_size if present
+
+-------------------------------------------------------------------
+Fri Oct 1 13:13:14 UTC 2018 - jschmid@suse.com
+
+- Version 0.9.7
+- build: Add %pretrans script to deal with dir->symlink change
+- qa: drop health-ok.sh and associated scripting
+- Specify only support image feature: layering
+- Install salt-api requirement prior to building the package. Trying to fix #1285
+- Remove error condition, empty cluster network is valid
+- man: missing closing quotes
+- build: Remove duplicate functests `install` lines
+- qa/deploy: fix error-reporting issues
+- functests: fix pid comparisons when process not running
+- functests: stop restart test if no pid
+- cli: refer to orchestration instead of stage
+- qa/common: properly report stage timeout when running via cli
+- qa/health-ok: repeat Stage 0 only once
+- qa/deploy: use jq instead of python in salt_api_test
+- qa/common: move salt_api_test to deploy.sh where it is used
+- cli: fix parsing of salt.runner when used inside state files
+- remove/replace interference fixes
+- man: add line break between separate commands.
+- fixed problem in stage.0 with error message no  minion found in metapackage
+- cli: support list of sls ids in salt.state orch function
+- qa/health-ok: add missing options to usage message
+- qa/deploy: create rbd pool if --rbd option passed
+- qa: move pgs_per_pool function to common/pool.sh
+- qa/health-ok: implement --rbd option
+- qa/pool: create non-prefixed openstack pools
+- build/ops: make "make rpm" work in a py3-only environment
+- qa: increase stage timeout duration from 30m to 60m
+- qa/health-ok: add --tuned=on/off option (default: off)
+- qa: add openstack to ceph.functests.1node orchestration
+- qa/health-ok.sh: add --openstack option
+- s/unsused/unused/
+- qa: don't initially delete openstack pools
+- monitoring: fix fs fillup time query
+- tuned: make stanza names unique
+- monitoring: fix rbd_exporter pool parsing for ids > 9
+- Set theme jekyll-theme-cayman
+- Use disks paths closer to real hardware for tests
+- Refactor tests for test_proposal.py
+- Remove codecov from unit tests
+- NFS-Ganesha + Cephfs: Add cache config options
+- Add test for OSD migration (different slots)
+- Add OSD migrations that include disk slot changes
+- Restart is separate state now
+- Add wiki to PULLREQUEST_TEMPLATE
+- qa/policy: MDS on up to 3 storage nodes only
+- qa/health-ok: drop --fsal option (no longer needed)
+- Return devicename if no /dev/disk/by-id path
+- qa/health-ok: implement --no-update option
+- qa: more flexible role assignment in policy.cfg
+- stage/prep: reinstate single quotes around deepsea_minions tgt
+- qa/health-ok: use "echo" instead of "echo -n"
+- qa/health-ok: add NFS-Ganesha deployment/test functionality
+- qa: health-nfs-ganesha.sh fix case statement
+- qa/rgw: restart rsyslog service after installing curl RPM
+- qa: use "systemctl --no-pager --full status"
+- cephinspector: use cephdisks.device in engulf (bsc#1082994)
+- cephinspector: assume filestore OSD if type file not present (bsc#1104773)
+- Remove deprecated test function
+- Moved stage 0 specific man sections to the correct file, as per review comments
+- Make jinja variables quoting consistent
+- Change minion to default update-no-reboot
+- Update man pages of stage 0 and customization to update-no-reboot
+- Change stage 0 default toupdate-no-reboot
+- rescinded.py: tweak runner comments
+- Add unittests for wait.just
+- doc: drop osd.tree command
+- qa: restart ceph-radosgw service after installing curl RPM
+- Stage 5: delete CRUSH host buckets orphaned when storage node is deleted
+- rescinded.py: implement rescinded.delete_orphaned_host_buckets
+- osd.py: refactor osd.tree
+- qa: common/deploy: run "zypper ps -s" on all nodes
+- populate: don't create role-mon yml line during engulf (bsc#1104781)
+- Use host rather than nodename consistently
+- Reuse OSD ID in migrations, support replace.osds
+- common/helper: show output of test.ping in _first_storage_only_node
+- common/helper: storage-only node might be master node
+- Refactor device detection, allow override
+- Use fqdn for default minion name in template
+- qa: run lsblk and ceph-disk on storage node only
+- Explicitly add hwinfo and lshw
+- qa/deploy: handle possibility that deepsea-cli is not installed
+- Add checklist to Pullrequest template
+- qa: add script to test Stage 5
+- Fix indentation for tests/
+- fix readme matrix rendering
+- qa: health-ok.sh: enable testing of OSD configurations
+- rescind: prevent empty rendering of ceph.rescind.tuned state file
+- build/ops: streamline qa %files section
+- cli: filter out test.nop steps and don't report [init] step errors
+- qa/common: create btrfs subvolumes after Stage 0
+- qa/common/helper: unify whitespace
+- qa/health-ok: fix usage message (--encryption was missing)
+- qa/common: unify whitespace
+- qa: Add testing osd-configrations qa: add README to clarify
+- qa/common/deploy.sh: fix redirect of stderr to /dev/null
+- qa: rename ceph.smoketests to ceph.functests.1node
+- qa/health-ok: add --min-nodes and --client-nodes options
+- qa/common/helper.sh: refactor _run_stage
+- qa: health-ok.sh: add a top-secret undocumented navigation code
+- qa: fix ceph_version_test
+- qa: make MDS deploy even without client nodes
+- qa/common/helper.sh: drop workaround for bsc#1087232
+- qa: refactor health-ok.sh, drop health-{mds,rgw}.sh
+- apparmor: install apparmor-utils package on SUSE
+- openstack: add smoketests for ceph.openstack
+- openstack: add openstack.integrate runner (fate#324708)
+- openstack: allow specifying prefix, use generic pool names
+- openstack: enable rbd application on openstack pools
+- openstack: add cinder-backup user and pool
+- openstack: collapse keyring cache directories
+- openstack: don't create separate key for nova service
+- add test for kernel validation
+- add rbd kernel module validation
+- build/ops: add /srv/salt/ceph/smoketests/init.sls to spec file
+- build/ops: add /srv/salt/ceph/smoketests/init.sls to Makefile
+- Rename tuned profiles from ses-* to ceph-*
+- Only remove tuned if a node has no osd, mon or mgr
+- Add tuned smoke tests
+- Add predefined tuned profiles
+- enforce pylint version 1.9.x
+- build/ops: add jq runtime dependency to spec file
+- fix issue that would make benchmark.baseline fail if an osd is removed. make benchmark.baseline use 'ceph osd ls' instead of 'osd.list' to get the list of the active osd ids.
+- address suggestions & fix typos
+- Adding more information to the man pages
+- adaptions to deepsea-qa package
+- install smartmontools in stage.0 (bsc#1104779)
+- Do not create untracked partitions 
+- rescind: prevent empty rendering
+- fix function header after adaption
+- use safe_dump rather than dump (bsc#1100136)
+
+-------------------------------------------------------------------
+Fri Jul  6 19:13:14 UTC 2018 - ejackson@suse.com
+
+- Version 0.9.6
+- Fix uuid, restart, lint issues, Makefile
+- Fix migration of empty cluster, salt api validation
+- Cleanup, remove uncalled code
+- Improve ceph version check
+- Add mon/mgr check after start
+- Support apparmor
+- Lock tox to Salt 2016
+- Address FIXMEs, use jq, bare except
+- Fix cli for absent decoding
+- Address Salt cache permissions
+- Support metapackage
+- Experiment with py-coverage
+- Add iputils dependency
+
+-------------------------------------------------------------------
+Mon May 21 15:39:30 UTC 2018 - ejackson@suse.com
+
+- Version 0.9.5
+- Master minion setting is optional
+- Add restart smoketests
+- Add Mimic compatible OSD bootstrap
+- Add os_switch macro
+- Fix mds restart for multiple active mds
+- Add validation for Salt version
+- QA refactor, check ceph-test is installed
+- Fix cached runners
+- Fix makefile for Fedora
+- Contributing doc update
+
+-------------------------------------------------------------------
+Mon Apr 16 16:13:19 EDT 2018 - ejackson@suse.com
+
+- Version 0.9.4
+- Require Ceph Luminous or newer
+- Allow custom format for select.minions
+- Remove filestore_xattr_use_omap
+- Support kwargs for proposal.populate
+- Fix validate conditionals, redeploy nodes init.sls, apparmor command
+- Cleanup remove unused OSDState, remove obsolete public address method
+- Correct Jinja conditional for lrbd.conf.j2
+- Add active+clean, safe-to-destroy checks 
+- Add keyring smoketests
+- Add rescind ceph configuration
+- Prefer detailed device names for OSDs
+- Refactor changed.py, fix arg name, support igw restart
+- Fix engulf to return single device
+- Support python3, rework imports
+- Support Salt 2018
+- Change default PG  ratio for Cephfs pools to 4:1
+- Workaround for job cache permissions
+- QA: Add --mini for health-ok
+
+-------------------------------------------------------------------
+Sun Mar 18 12:40:56 UTC 2018 - ejackson@suse.com
+
+- Version 0.9.3
+- PR template
+- Fix node_exporter
+- Create cli subpackage
+- Fix another wal/db check
+- Support multiple networks in engulf
+- Tune chrony
+- Additional qa functions, migration testcase
+
+-------------------------------------------------------------------
+Thu Mar  1 16:45:00 UTC 2018 - ejackson@suse.com
+
+- Version 0.9.2
+- Stage 4 restart complete
+- Support prometheus 0.15 node-exporter
+- Fixes for device discovery, wal/db checks
+- Switch to chrony
+- Add s3 checks 
+- Many QA additions
+- Add blockdev benchmark
+- cleanup, remove diagnose files
+- Add editorconfig
+- Swap salt-api and sync order
+- Improve policy.cfg error handling
+
+-------------------------------------------------------------------
+Fri Jan  5 22:12:29 UTC 2018 - ejackson@suse.com
+
+- Version 0.9.1
+- Fix ceph package install instead of latest
+- Change spec file version management
+- Initial Openstack support
+- Initial CentOS support
+
+-------------------------------------------------------------------
+Thu Dec  7 22:35:58 UTC 2017 - ejackson@suse.com
+
+- Version 0.9
+- Refresh package db
+- Reimplement restart orchestrations for config and binary changes
+- Support restart differences between upgrade, Stage 0 and Stage 3
+- Update man pages
+- Improve rgw.add_users
+- Begin benchmark-rbd role
+- Optimize bluestore argument handling
+- Support multiple ntp servers 
+- Grafana dashboard touch ups, include /var
+- Lint fixes, enforce via Travis
+- Correct behavior for failed engulf
+- Import Validate fix
+- Add sortbitwise flag
+- Use host grain for shortname, Crowbar compatibility
+- Use pyfakefs 3.2 for unit tests
+- Fix is_prepared for NVMe OSD
+- Include openATTIC, client processes in cephprocesses
+- Use mine.update instead of mine.restart
+- ui_iscsi fixes
+- Fix radosgw system user creation
+- Add selectable cron for radosgw-admin usage
+- Suppress ceph-disk deprecation warning
+- Support individual iSCSI gateways
+- Add version to Salt api
+- Fix OSD drain
+- QA restart tests, display rpm version
+- QA consolidate encryption, validate rgw system user
+
+-------------------------------------------------------------------
+Wed Oct 18 11:55:06 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.35
+- Relocate openATTIC config file
+- Fix cli
+
+-------------------------------------------------------------------
+Tue Oct 17 16:09:27 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.34
+- Fix Makefile, spec file
+
+-------------------------------------------------------------------
+Mon Oct 16 17:29:08 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.33
+- Update grains unconditionally
+
+-------------------------------------------------------------------
+Fri Oct 13 12:49:01 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.32
+- Cleanup: package removal
+- Add argument to benchmark runner
+- Additional qa tests
+
+-------------------------------------------------------------------
+Fri Oct  6 14:21:27 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.31
+- Moved salt-api validation
+- fix NVMe partition removal
+
+-------------------------------------------------------------------
+Thu Oct  5 15:13:15 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.30
+- Swap salt-api and validate.setup
+- Fix syntax indentation
+
+-------------------------------------------------------------------
+Wed Oct  4 19:49:43 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.29
+- Minor dashboard changes
+- Subvolume support
+- New man pages, help functions
+- Fix cephprocesses, cephinspector for psutil
+- Cleanup error messages, move pillar examples to doc
+- Fix cephdisks for smartctl detection
+
+-------------------------------------------------------------------
+Tue Sep 26 17:59:26 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.28
+- Fix ganesha config parsing
+- cli: use ascii on unsupported UTF-8 terminals
+- cli: render/substate/privilege fixes, run as salt user 
+- grafana dashboard corrections, top 10 stats
+- remove unused iperf directory
+- select.minions support multiple values
+- restart RGW gateways only when config changes
+- rgw: bucket query, demo bucket restricted to demo users
+- rgw: ssl cert permissions
+- fix validate for DEV_ENV in pillar for single node
+- monitoring: cron job lock, restrict to fast-diff images
+- improve validate openATTIC/RGW port conflict check
+- support rgw_configurations in cephprocesses module
+- enable rgw usage log
+- include cron package for Prometheus
+- set aio-max-nr, fixes OSD creation on larger nodes
+- another deepsea_minions example
+
+
+-------------------------------------------------------------------
+Wed Sep 13 21:19:15 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.27
+- Improved RGW dashboards
+- deepsea command for viewing orchestrations
+- Minor fixes in populate runner
+- Separate RGW users, add system user
+- benchmark improvements
+- fix oA, RGW port validation
+- fix sort order for net.iperf
+- qa tests for encrypted disks, oA/RGW deployment
+
+-------------------------------------------------------------------
+Fri Sep  1 15:28:05 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.26
+- Handle missing instance of ceph.conf for rgw
+
+-------------------------------------------------------------------
+Thu Aug 31 21:43:33 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.25
+- Fix net.iperf
+- Fix ceph.conf for rgw
+
+-------------------------------------------------------------------
+Wed Aug 30 22:39:52 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.24
+- Fix ceph.conf generation
+- Fix proposal runner 
+
+-------------------------------------------------------------------
+Mon Aug 28 21:55:36 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.23
+- Support Bluestore on importing non-DeepSea clusters
+- Add deepsea_minions validation to engulf
+- Improve cluster network detection in engulf
+- Add pyc files to rpm
+- Create qa subpackage
+- Fix Stage 5 storage node removal
+- Reimplement mon_host and mon_initial_members
+- Fixes for test environment
+- Notify admin about public, cluster setting 
+- Minor corrections, updates to monitoring, runners
+
+-------------------------------------------------------------------
+Fri Aug 18 14:22:44 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.22
+- Rename ceph_tgt to deepsea_minions
+- Minor promethus fix, add ganesha role to policy example
+
+-------------------------------------------------------------------
+Thu Aug 17 22:40:58 UTC 2017 - ejackson@suse.com
+- Version 0.7.21
+- Monitoring updates
+- Revert rgw.sls removal from /srv/pillar/ceph/init.sls
+- Add python-rados dependency to spec
+
+-------------------------------------------------------------------
+Wed Aug 16 21:14:51 UTC 2017 - ejackson@suse.com
+- Version 0.7.20
+- Update README for DEV_ENV
+- Various Grafana dashboard fixes/improvements
+- Add qa test cases for ganesha, sanity checks
+- Support ssl for rgw configurations
+- Add mandatory ceph_tgt constraint
+- Enable salt-api, include validation
+- Remove unused client roles
+
+-------------------------------------------------------------------
+Thu Aug  3 13:01:44 UTC 2017 - ejackson@suse.com
+- Version 0.7.19
+- Revert salt-api
+- Update grafana dashboards
+- Fix proposal runner
+
+-------------------------------------------------------------------
+Wed Aug  2 23:51:59 UTC 2017 - ejackson@suse.com
+- Version 0.7.18
+- Enable salt-api
+- Add rgw-ssl state, examples
+- Fix upgrade check on minons.ready, remove icinga references
+- Add deepsea.commands man page
+- Move openattic example to rescind/openattic
+- Enable iscsi-images pool
+- Add module for configuring openATTIC, mds caps to keyring
+- Check for openATTIC and rgw role conflicts
+- Relax firewall check, allow custom chains
+- Fix apparmor check for importing clusters
+
+-------------------------------------------------------------------
+Thu Jul 20 10:28:31 UTC 2017 - jfajerski@suse.com
+- Version 0.7.17
+- Change default proposal to new profiles
+- Propose bluestore OSDs by default
+- Fixes for upgrade orchestration (bsc#1043863, bsc#1048186)
+- Fixes for import of ceph-deploy cluster
+- Add support for new 'ceph health' format
+- Add smartmon and rbd monitoring to grafana
+- Add mgr removal (bsc#1047892)
+- Fix rbd demo image creation for iscsi
+- Deploy salt-api and add eauth sharedsecret (bsc#1049215)
+- Fix mgr caps in various keyrings (bsc#1049151)
+- Improve integrtation tests
+- Update benchmark capabilities
+
+-------------------------------------------------------------------
+Fri Jul  7 00:02:28 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.16
+- Upgrade fixes
+- Support importing ceph-deploy clusters
+- Bluestore no longer experimental
+- Add mgr role, keyring fixes
+- Add ceph.conf.rbd
+- Add librbd testing
+- Move demo image to iSCSI stage
+- Change Stage 5 default to not remove pools
+- Add alternate Stage 0 states for no reboot/update
+- Improve filestore to bluestore migration, multiple wait states
+- Migrate policy.cfg and hardware profiles 
+- Cleanup, remove unnecessary sls files
+
+-------------------------------------------------------------------
+Mon Jun 26 13:59:41 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.15 8172280bf2ad29584577d0d1ce256a82ff3009cf
+- Fix reweight, remove strays
+- proposal runner fixes
+
+-------------------------------------------------------------------
+Mon Jun 26 08:24:13 UTC 2017 - ricardo.dias@suse.com
+
+- Version 0.7.14 fc9b64b6778db158bca08072dde3b8c1df8b01fe
+- Fixed bug in RGW deployment
+
+-------------------------------------------------------------------
+Thu Jun 22 22:18:19 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.13 0e17664447ed75cecbfbc7bf5e7051a957c56fc4
+- Progressing with integration test suite
+- Initial support for importing ceph-deploy clusters
+- Correct rgw endpoints, several ganesha configuration changes
+- Default Grafana desktop fixed
+- Migration by OSD working
+- Many minor fixes
+
+-------------------------------------------------------------------
+Wed Jun 14 10:23:37 UTC 2017 - jan.fajerski@suse.com
+
+- fix potential race between partprobe and dd
+
+-------------------------------------------------------------------
+Wed Jun 14 08:04:07 UTC 2017 - jan.fajerski@suse.com
+
+- Version 0.7.12
+- re-enable monitoring deployment
+- add initial functional testing suite
+
+-------------------------------------------------------------------
+Tue Jun 13 08:16:50 UTC 2017 - jan.fajerski@suse.com
+
+- Version 0.7.11.1
+- do not deploy any monitoring be default, avoid MON regression in 12.0.2 
+
+-------------------------------------------------------------------
+Thu Jun  8 20:40:40 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.11 2ffc279ae43724e1b0e349d0a967bf7ee83c39e9
+- Add prometheus, grafana and basic configuration
+- Improve OSD deployment
+- Add remove functionality and single OSD removal command
+- Ganesha tuning, add ganesha runner for salt-api
+- Various spec file, build environment changes
+
+-------------------------------------------------------------------
+Wed May 31 08:24:16 UTC 2017 - jschmid@suse.com
+
+- Version 0.7.10 8173ccabc62729981ccc876966231aee0ba4b9d4- 
+- Fix is_activate and is_prepared with by-id devices
+- Wal and db partuuid awareness
+- Fix osds+journal deployments
+
+-------------------------------------------------------------------
+Mon May 29 15:03:51 UTC 2017 - jschmid@suse.com
+
+- Version 0.7.9.1 48c933d0e9405198fe8873e7fe3a61d8cd54fa73- 
+- Fixed bug in osd module internal targeting
+- Fixed conversion of bytes to gigabytes for disk size detection
+
+-------------------------------------------------------------------
+Thu May 25 19:18:31 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.9 0fbdff9abab508277940d50d775fb01bb515860c
+- Automatically include custom files from ceph.conf.d
+- Enable client ntp configuration
+- Add ui_rgw runner for RadosGW credentials
+- Add prometheus exporters (prometheus, itself is in progress)
+- Add validation to discovery stage, linter for yaml, check profiles
+- Ensure at least one storage in DEV_ENV mode
+- Fix storage removal order
+- Warn if apparmor is enabled
+- Enable bluestore, sizes for journal, wal and db
+- Remove ganesha /etc/sysconfig/ganesha (moved to rpm)
+- Initial dmcrypt support (removal in incomplete)
+- Add status.report runner, display after upgrade
+- Misc. fixes to READMEs, radosgw rescind
+
+-------------------------------------------------------------------
+Mon May 15 19:40:00 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.8 93ec5f36f4a8c27cc1fac0c841ccf45bab6841bb
+- salt-api fix
+- Updated README
+
+-------------------------------------------------------------------
+Mon May 15 11:51:47 UTC 2017 - jschmid@suse.com
+
+- Version 0.7.7 8f803eabe3294b205af17786417e26b2143e61f1
+- Support restarting single services
+- Added openATTIC role
+- Rename cherrypy to salt-api
+- Add Wolffish to contrib
+- Additions to ui_iscsi api
+- Fix ganesha service file
+
+-------------------------------------------------------------------
+Fri Apr 28 04:33:03 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.6 18a3f872ad438332e2aebb130fa5e4a79bcb0bd6
+- Rolling upgrade
+- Remove unused directories, modules
+- Include python bytecode in rpms
+- Migrate ganesha to salt modules for restarts
+- Correct package dependencies for Ubuntu
+
+-------------------------------------------------------------------
+Sat Apr  8 11:18:42 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.5 99f5be86c4d5c49c30d29cf68f228beb0adcf5a5
+- Fix bugs for ceph.purge, disengage.safety
+- Skip unassigned service orchestrations
+- Add pylintrc and associated bootstrap script
+- Fix ganesha ordering, restart, validation
+- Fix permissions, encoding of runners, modules
+- Add various unit tests - filequeue, push
+- Improve comment handling in policy.cfg
+- Add shared keys for mds, rgw
+- Correct building, dependencies on OpenSUSE
+- Fix certificate of origin, url in contributing.md
+- Change Stage 0 ordering
+- Support DEV_ENV flag
+- Enable openATTIC rpcd, systemd services
+- Add cephservices runner, module - renamed cephprocesses
+- Fix eauth for cherrypy configuration
+- Change cephfs pools initial pg from 256 to 128
+- Rewrite cephdisks to handle raid controllers, support lspci
+- Support multiple public, cluster networks
+- Various python improvements, remove unnecessary methods
+
+-------------------------------------------------------------------
+Mon Mar 13 15:20:48 UTC 2017 - ejackson@suse.com
+
+- Version 0.6.13 git 709867f2ac1c55931504fb2eea0fb0a6fcb369fb
+- Enable openattic services (bnc#1027261)
+
+-------------------------------------------------------------------
+Fri Feb 17 19:08:51 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.4 e8559976b5e70dd36e9a98250f795de9f1cc48d4
+- Add ganesha for rgw/cephfs
+- Add kernel.replace
+- Add missing import
+
+-------------------------------------------------------------------
+Fri Feb 10 19:38:20 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.3 316c3b9071807a22baa87df5dd1823560c9ef79e
+- Refactoring, code improvements
+- Disable unsupported kernel features for rbd images
+- Correct time sync bug in Stage 3 when time_service is disabled
+- Add cherrypy, salt-api support
+- Add net.ping runner, multi.ping module
+
+-------------------------------------------------------------------
+Wed Feb  1 20:49:54 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.2 0aeeceda3497cd3dad2439954203829ab428f43a
+- Add python-ipaddress dependency
+- Add unit tests, refactor
+- Add warnings to validate
+
+-------------------------------------------------------------------
+Wed Jan 25 13:41:07 UTC 2017 - ejackson@suse.com
+
+- Version 0.7.1 git 2eaa452cbe6f24538a91433575010e7ef9bf1f2f
+- Fix various README typos, add links to documentation
+- Add unofficial mascot
+- Rename 'name' parameter
+- Add alternate default for kernel-default
+- Add tox.ini, test structure
+- Add disengage.safety, ceph.purge
+
+-------------------------------------------------------------------
+Tue Jan 24 10:45:21 UTC 2017 - ejackson@suse.com
+
+- Version 0.6.12 git a2ac3b3da52068c085159928716d3bbc4e84eb97
+- Do not replace existing /srv/pillar/top.sls (bnc#1020840)
+
+-------------------------------------------------------------------
+Mon Jan  9 14:46:14 UTC 2017 - ejackson@suse.com
+
+- Version 0.6.11 git 3b8e493eac552ee6b3051fb513704aff2fcbd5e8
+- Renamed "name" parameter 
+
+-------------------------------------------------------------------
+Tue Nov 15 20:32:53 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.10 git 73f55a985b62c171ef4d6af29d94dc458cd00733
+- Fix ordering of Storage node removal 
+
+-------------------------------------------------------------------
+Sat Nov  5 13:58:21 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.8 git 56a0dbea92640a0212104099cc3fe09c2e6b64d9
+- Remove extraneous spaces/comments from runners/modules
+- Fix policy.cfg examples, remove old README
+- Remove unnecessary defaults from pillar
+- Remove stack/default before writing
+- Use only first device from hwinfo
+- Create pools from master
+- Change Salt state_output to mixed 
+
+-------------------------------------------------------------------
+Tue Nov  1 14:01:10 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.7 git d4ea8857fffa1a9da4c19285506266d5ea30f3c9
+- Rename custom.sls, add comments and general cleanup 
+
+-------------------------------------------------------------------
+Sun Oct 30 14:30:20 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.6 git f20b1bd040e2f3674c1c255340fa26716cafe972
+- Added baseline benchmarks
+- Fixed proposals for nice ratio and unused OSDs 
+
+-------------------------------------------------------------------
+Thu Oct 27 21:56:50 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.5 git ad8b6991805a6c2037ad90205ae504330cb29b68
+- Add graceful restart functionality 
+
+-------------------------------------------------------------------
+Thu Oct 27 20:12:50 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.4 git f22ee4176ce6b4cb25f33b55fd02df6299f2bddf
+- Renamed rescind directories to match client roles
+
+- Version 0.6.3 git 6e416b6a2c68b40bdbb90482a1ac8295670a97fb
+- Migrated install from spec to Makefile 
+
+-------------------------------------------------------------------
+Wed Oct 26 15:27:41 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.2 git da5939238bdd5a807f8400f11152601408ef6d44
+- Proposal corrections for OSDs with separate journals 
+
+-------------------------------------------------------------------
+Tue Oct 25 23:05:13 UTC 2016 - ejackson@suse.com
+
+- Version 0.6.1 git 0dcb54000c874299d0dfbeae0e286595de34c779
+- Rename profile, clients and zypper commands 
+
+-------------------------------------------------------------------
+Thu Oct 20 10:04:43 UTC 2016 - ejackson@suse.com
+
+- Version 0.6 git b5a23522ecf114e90d9fea578e6648b3a04a41f6
+- Rename variables from _method to _init
+- Rework stage directory to allow overriding
+- Add valdiation checks 
+
+-------------------------------------------------------------------
+Mon Oct 17 15:30:30 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.8 git 538dbbdee4b0f16f05ab1ca05087480162595f79
+- Create default iSCSI setup
+- Restart apache2 for OpenATTIC
+- Add iperf/ping diagnostics 
+
+-------------------------------------------------------------------
+Fri Oct 14 11:04:24 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.7 git dd22795643e4785de7f7e6bfc5a76a8bde39b212
+- Add validate check for no responding minions
+- Finish removal of monitors, iSCSI, CephFS and RGW 
+
+-------------------------------------------------------------------
+Wed Oct 12 15:20:04 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.6 git 7da15965480dcfe901b1814cd077a6e523f8c5ec
+- Automatically install openattic 
+
+-------------------------------------------------------------------
+Tue Oct 11 09:16:18 UTC 2016 - ejackson@suse.com
+
+- Add missing directories to spec file 
+
+-------------------------------------------------------------------
+Tue Oct 11 09:07:10 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.5 git 45e2c13ea7159678f1bbc63efdf6d694824776ea
+- Add rescind functionality 
+
+-------------------------------------------------------------------
+Fri Oct  7 11:33:54 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.4 git 92b8e8b9dda29aa0a0125ae41b88387055f88a9a
+- Correct generation of hardware profiles 
+
+-------------------------------------------------------------------
+Wed Oct  5 19:44:39 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.3 git 3fc096d39d187efd87945cfddd937d561379cdde
+- Generate ceph.conf correctly for custom rgw configurations
+- Auto accept licenses for updates 
+
+-------------------------------------------------------------------
+Sun Oct  2 11:59:56 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.2 git fa140169e6210ce27cb1164386b3e2fa340b4fa0
+- Messages at startup and reboot
+- skip CephFS pool creation if no minion has an mds role
+- Validate has JSON output option
+- Install sgdisk during Stage 0 
+
+-------------------------------------------------------------------
+Wed Sep 28 13:14:57 UTC 2016 - ejackson@suse.com
+
+- Version 0.5.1 git b7465074cb36d304063589db3c9e2b85ebbc0c76
+- Handle unassigned roles 
+
+-------------------------------------------------------------------
+Tue Sep 27 14:06:50 UTC 2016 - ejackson@suse.com
+
+- Version 0.5 git 7d541d14d7c8de5b095977d398ffd1d6ea3284f9
+- Reimplementation of keyrings, secrets are no longer in pillar 
+
+-------------------------------------------------------------------
+Mon Sep 26 13:53:13 UTC 2016 - ejackson@suse.com
+
+- Version 0.4.5 git 92185470ef471eb07b6afc655b43c5928337b0ba
+- Add BuildRequires, remove conflicts 
+
+-------------------------------------------------------------------
+Sun Sep 25 18:28:00 UTC 2016 - ejackson@suse.com
+
+- Version 0.4.4 git 9fffc7e2aa6776c9a7d1bf585fe02f519f1d49a8
+- Restart salt-master during installation 
+
+-------------------------------------------------------------------
+Fri Sep 23 14:31:17 UTC 2016 - ejackson@suse.com
+
+- Version 0.4.3 git 1fc618a8c4af50745f2e52d464b32c3a5cd329d3
+- Fix spec file permissions and globbing 
+
+-------------------------------------------------------------------
+Fri Sep 23 10:30:59 UTC 2016 - ejackson@suse.com
+
+- Version 0.4.2 git 2b0503d67322788e4490f28268025757a6e797be
+- handle missing keys gracefully 
+
+-------------------------------------------------------------------
+Thu Sep 22 21:30:17 UTC 2016 - ejackson@suse.com
+
+- Version 0.4.1 git cfb472439a09ee470b3a95d73d98b952d95e7b3a
+- Validate ceph version in every minion repo
+- extend README, detail policy.cfg 
+
+-------------------------------------------------------------------
+Wed Sep 21 21:26:26 UTC 2016 - ejackson@suse.com
+
+- Version 0.4 git ca66ab6df47e3ec2d5a4715e1517c4eb568ddce9
+- Add validation of master_minion setting in Stage 0 
+
+-------------------------------------------------------------------
+Wed Sep 21 09:57:47 UTC 2016 - ejackson@suse.com
+
+- Version 0.3.1 git 48608e8b6c0fece0c3d1367138c909e1f001ad2d
+- Fixed additional misplaced files 
+
+-------------------------------------------------------------------
+Wed Sep 21 03:15:40 UTC 2016 - ejackson@suse.com
+
+- Version 0.3 git 2dd422ae5ff3fbf289f52c390faaa1ddd5712047
+- Fixed misplaced files 
+
+-------------------------------------------------------------------
+Mon Sep 19 15:57:44 UTC 2016 - ejackson@suse.com
+
+- Correct LICENSE file 
+
+-------------------------------------------------------------------
+Wed Sep 14 11:55:13 UTC 2016 - ejackson@suse.com
+
+- Version 0.2 git 9eaa8484b53ba1cb2514c8edbb25addfd3451891
+- first package 
+

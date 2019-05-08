@@ -1,4 +1,14 @@
+{% set master = salt['master.minion']() %}
 
+{% if salt['saltutil.runner']('validate.discovery', cluster='ceph') == False %}
+
+validate failed:
+  salt.state:
+    - name: just.exit
+    - tgt: {{ master }}
+    - failhard: True
+
+{% endif %}
 
 push proposals:
   salt.runner:
@@ -6,47 +16,34 @@ push proposals:
 
 refresh_pillar1:
   salt.state:
-    - tgt: '*'
+    - tgt: '{{ salt['pillar.get']('deepsea_minions') }}'
+    - tgt_type: compound
     - sls: ceph.refresh
-    - require:
-      - salt: push proposals
 
-post configuration:
+show networks:
   salt.runner:
-    - name: configure.cluster
-    - require: 
-      - salt: refresh_pillar1
+    - name: advise.networks
 
-refresh_pillar2:
+# We need ceph-volume to use dg.py and disks.py
+install ceph packages:
   salt.state:
-    - tgt: '*'
-    - sls: ceph.refresh
-    - require: 
-      - salt: post configuration
+    - tgt: '{{ salt['pillar.get']('deepsea_minions') }}'
+    - tgt_type: compound
+    - sls: ceph.packages
+    - failhard: True
 
-{% for role in [ 'admin', 'mon', 'osd', 'igw', 'mds', 'rgw', 'ganesha', 'openattic'] %}
+{% for role in [ 'admin', 'osd', 'mon', 'mgr', 'igw', 'mds', 'rgw', 'ganesha'] %}
 {{ role }} key:
   salt.state:
-    - tgt: {{ salt['pillar.get']('master_minion') }}
+    - tgt: {{ master }}
     - tgt_type: compound
     - sls: ceph.{{ role }}.key
     - failhard: True
 
 {% endfor %}
 
-igw config:
+install and setup node exporters:
   salt.state:
-    - tgt: {{ salt['pillar.get']('master_minion') }}
+    - tgt: '{{ salt['pillar.get']('deepsea_minions') }}'
     - tgt_type: compound
-    - sls: ceph.igw.config
-    - failhard: True
-
-ganesha config:
-  salt.state:
-    - tgt: {{ salt['pillar.get']('master_minion') }}
-    - tgt_type: compound
-    - sls: ceph.ganesha.config
-    - failhard: True
-
-
-
+    - sls: ceph.monitoring.prometheus.exporters.node_exporter

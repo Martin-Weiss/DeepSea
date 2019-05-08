@@ -1,17 +1,8 @@
 
-reweight nop:
+remove storage nop:
   test.nop
 
-{% for id in salt.saltutil.runner('rescinded.ids', cluster='ceph') %}
-clear osd.{{ id }}:
-  module.run:
-    - name: osd.zero_weight
-    - id: {{ id }}
-
-down id {{ id }}:
-  module.run:
-    - name: osd.down
-    - id: {{ id }}
+{% for id in salt.saltutil.runner('rescinded.ids') %}
 
 remove osd.{{ id }}:
   cmd.run:
@@ -22,10 +13,16 @@ delete osd.{{ id }} key:
     - name: "ceph auth del osd.{{ id }}"
 
 remove id {{ id }}:
-  module.run:
-    - name: retry.cmd
-    - kwargs:
-        cmd: "ceph osd rm {{ id }}"
+  cmd.run:
+    - name: "ceph osd rm {{ id }}"
 
 {% endfor %}
+
+delete orphaned host buckets:
+  salt.runner:
+    - name: rescinded.delete_orphaned_host_buckets
+
+fix salt job cache permissions:
+  cmd.run:
+  - name: "find /var/cache/salt/master/jobs -user root -exec chown {{ salt['deepsea.user']() }}:{{ salt['deepsea.group']() }} {} ';'"
 

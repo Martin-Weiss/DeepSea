@@ -1,88 +1,40 @@
+{% set master = salt['master.minion']() %}
 
-{% set FAIL_ON_WARNING = salt['pillar.get']('FAIL_ON_WARNING', 'True') %}
+include:
+  - .monitoring
+  - .core
+  - ...restart.mon.lax
+  - ...restart.mgr.lax
+  - ...restart.osd.lax
 
-{% if salt['saltutil.runner']('ready.check', cluster='ceph', fail_on_warning=FAIL_ON_WARNING)  == False %}
-ready check failed:
+enable prometheus module:
   salt.state:
-    - name: "Fail on Warning is True"
-    - tgt: {{ salt['pillar.get']('master_minion') }}
-    - failhard: True
+    - tgt: {{ master }}
+    - tgt_type: compound
+    - sls: ceph.monitoring.prometheus.exporters.mgr_exporter
+    - require:
+      - salt: mgrs # from .core/default.sls
+
+{% if (salt.saltutil.runner('select.minions', cluster='ceph', roles='prometheus') != []) %}
+
+populate mgr scrape configs:
+  salt.state:
+    - tgt: {{ master }}
+    - tgt_type: compound
+    - sls: ceph.monitoring.prometheus.populate_mgr_scrape_configs
+    - require:
+      - salt: enable prometheus module
+
+distribute mgr scrape configs:
+  salt.state:
+    - tgt: 'I@roles:prometheus and I@cluster:ceph'
+    - tgt_type: compound
+    - sls: ceph.monitoring.prometheus.push_mgr_scrape_configs
 
 {% endif %}
 
-{# Salt orchestrate ignores return codes of other salt runners. #}
-#validate:
-#  salt.runner:
-#    - name: validate.pillar
-
-{# Until return codes fail correctly and the above can be uncommented, #}
-{# rely on the side effect of the runner printing its output and failing #}
-{# on a bogus state #}
-{% if salt['saltutil.runner']('validate.pillar', cluster='ceph') == False %}
-validate failed:
+setup rbd exporter:
   salt.state:
-    - name: just.exit
-    - tgt: {{ salt['pillar.get']('master_minion') }}
-    - failhard: True
-
-{% endif %}
-
-
-{% if salt['pillar.get']('time_service') != "disabled" %}
-time:
-  salt.state:
-    - tgt: 'I@cluster:ceph'
+    - tgt: {{ master }}
     - tgt_type: compound
-    - sls: ceph.time
-{% endif %}
-
-packages:
-  salt.state:
-    - tgt: 'I@cluster:ceph'
-    - tgt_type: compound
-    - sls: ceph.packages
-
-configuration check:
-  salt.state:
-    - tgt: {{ salt['pillar.get']('master_minion') }}
-    - tgt_type: compound
-    - sls: ceph.configuration.check
-    - failhard: True
-
-configuration:
-  salt.state:
-    - tgt: 'I@cluster:ceph'
-    - tgt_type: compound
-    - sls: ceph.configuration
-
-admin:
-  salt.state:
-    - tgt: 'I@roles:admin and I@cluster:ceph or I@roles:master'
-    - tgt_type: compound
-    - sls: ceph.admin
-
-monitors:
-  salt.state:
-    - tgt: 'I@roles:mon and I@cluster:ceph'
-    - tgt_type: compound
-    - sls: ceph.mon
-    - failhard: True
-
-osd auth:
-  salt.state:
-    - tgt: {{ salt['pillar.get']('master_minion') }}
-    - tgt_type: compound
-    - sls: ceph.osd.auth
-    - failhard: True
-
-storage:
-  salt.state:
-    - tgt: 'I@roles:storage and I@cluster:ceph'
-    - tgt_type: compound
-    - sls: ceph.osd
-    - failhard: True
-
-pools:
-  salt.state:
-    - tgt: {{ salt['pillar.get']('master_minion') }}
-    - sls: ceph.pool
+    - sls: ceph.monitoring.prometheus.exporters.rbd_exporter

@@ -24,9 +24,17 @@ remove rgw log:
   cmd.run:
     - name: "ceph osd pool delete default.rgw.log default.rgw.log --yes-i-really-really-mean-it"
 
+remove rgw meta:
+  cmd.run:
+    - name: "ceph osd pool delete default.rgw.meta default.rgw.meta --yes-i-really-really-mean-it"
+
 remove rgw users.uid:
   cmd.run:
     - name: "ceph osd pool delete default.rgw.users.uid default.rgw.users.uid --yes-i-really-really-mean-it"
 
 {% endif %}
+
+fix salt job cache permissions:
+  cmd.run:
+  - name: "find /var/cache/salt/master/jobs -user root -exec chown {{ salt['deepsea.user']() }}:{{ salt['deepsea.group']() }} {} ';'"
 

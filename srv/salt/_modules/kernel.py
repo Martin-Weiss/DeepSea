@@ -1,12 +1,4 @@
-#!/usr/bin/python
-
-from subprocess import call, Popen, PIPE
-import salt.client
-import logging
-import re
-import os
-
-log = logging.getLogger(__name__)
+# -*- coding: utf-8 -*-
 
 """
 Some distributions include multiple kernels and may default to a minimal
@@ -29,6 +21,25 @@ example,
                 - kernel-default-base
 
 """
+
+from __future__ import absolute_import
+import logging
+import re
+import os
+# pylint: disable=import-error,3rd-party-module-not-gated,redefined-builtin
+
+
+log = logging.getLogger(__name__)
+
+try:
+    import salt.client
+except ImportError:
+    logging.error('Could not import salt.client')
+
+try:
+    from salt.exceptions import CommandExecutionError
+except ImportError:
+    logging.error('Could not import salt.exceptions')
 
 
 def replace(**kwargs):
@@ -58,7 +69,7 @@ def replace(**kwargs):
 
     else:
         log.debug("No matching OS")
-    return
+    return None
 
 
 def _kernel_pkg():
@@ -71,11 +82,13 @@ def _kernel_pkg():
     query = _query_command(_boot_image(kernel))
     if query:
         log.debug("query: {}".format(query))
-        proc = Popen(query, stdout=PIPE, stderr=PIPE)
-        package = proc.stdout.read().rstrip('\n')
+        _, stdout, _ = __salt__['helper.run'](query)
+        package = stdout
+
         log.info("package: {}".format(package))
         return package
-    return
+    return None
+
 
 def _boot_image(contents):
     """
@@ -84,10 +97,12 @@ def _boot_image(contents):
     boot_image = None
     try:
         boot_image = re.split(r'[= ]', contents)[1]
+        boot_image = re.sub(r" ?\([^)]+\)", "", boot_image)
         log.info("running image: {}".format(boot_image))
     except IndexError:
         log.error("BOOT_IMAGE missing")
     return boot_image
+
 
 def _query_command(filename):
     """
@@ -96,9 +111,29 @@ def _query_command(filename):
     """
     if filename:
         if os.path.isfile('/bin/rpm'):
-            return [ '/bin/rpm', '-qf', filename ]
+            return ['/bin/rpm', '-qf', filename]
         if os.path.isfile('/usr/bin/dpkg'):
-            return [ '/usr/bin/dpkg', '--search', filename ]
+            return ['/usr/bin/dpkg', '--search', filename]
     log.error("Neither rpm nor dpkg found")
-    return
+    return None
 
+
+def installed_kernel_version():
+    """
+    Return the installed kernel version
+    """
+    os_str = __grains__.get('os', '')
+    if os_str == 'SUSE':
+        kernel_pkgs = ['kernel-default', 'kernel-default-base']
+    else:
+        kernel_pkgs = ['kernel']
+
+    for kernel_pkg in kernel_pkgs:
+        try:
+            pkg_info = __salt__['pkg.info_installed'](kernel_pkg)
+        except CommandExecutionError:
+            continue
+        if pkg_info:
+            pkg_info = pkg_info[kernel_pkg]
+            return "{}-{}.{}".format(pkg_info['version'], pkg_info['release'], pkg_info['arch'])
+    return None
